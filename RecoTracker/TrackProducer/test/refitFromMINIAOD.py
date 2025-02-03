@@ -1,8 +1,8 @@
 import FWCore.ParameterSet.Config as cms
 import FWCore.ParameterSet.VarParsing as VarParsing
 
-from Configuration.Eras.Era_Run2_2016_cff import Run2_2016
-process = cms.Process('RECO2',Run2_2016)
+from Configuration.Eras.Era_Run2_2018_cff import Run2_2018
+process = cms.Process('RECO2',Run2_2018)
 
 options = VarParsing.VarParsing('analysis')
 options.register('globalTag',
@@ -62,9 +62,29 @@ process.RECOSIMoutput.outputCommands = cms.untracked.vstring("keep *_myRefittedT
 from Configuration.AlCa.GlobalTag import GlobalTag
 process.GlobalTag = GlobalTag(process.GlobalTag, options.globalTag, '')
 
+
+####################################################################
+# load 3d field map and use it for g4e propagator, geant4 internals via geometry producer and a few other places related to the track refit
+####################################################################
+from MagneticField.ParametrizedEngine.parametrizedMagneticField_PolyFit3D_cfi import ParametrizedMagneticFieldProducer as PolyFit3DMagneticFieldProducer
+process.PolyFit3DMagneticFieldProducer = PolyFit3DMagneticFieldProducer
+fieldlabel = "PolyFit3DMf"
+process.PolyFit3DMagneticFieldProducer.label = fieldlabel
+process.stripCPEESProducer.MagneticFieldLabel = fieldlabel
+process.StripCPEfromTrackAngleESProducer.MagneticFieldLabel = fieldlabel
+process.TransientTrackBuilderESProducer.MagneticFieldLabel = fieldlabel 
+process.siPixelTemplateDBObjectESProducer.MagneticFieldLabel = fieldlabel
+process.templates.MagneticFieldLabel = fieldlabel
+
 # track refit stuff
 from TrackPropagation.Geant4e.geantRefit_cff import geopro
 process.load("TrackPropagation.Geant4e.geantRefit_cff")
+#process.Geant4eTrackRefitter.src = cms.InputTag("ALCARECOTkAlZMuMu")
+#process.Geant4eTrackRefitter.usePropagatorForPCA = cms.bool(True)
+
+process.geopro.MagneticFieldLabel = fieldlabel
+process.Geant4ePropagator.MagneticFieldLabel = fieldlabel
+
 process.Geant4ePropagator.ForCVH = True
 from RecoTracker.TransientTrackingRecHit.TTRHBuilders_cff import *
 from RecoLocalTracker.SiPixelRecHits.PixelCPEESProducers_cff import *
@@ -95,7 +115,7 @@ process.trackrefit = cms.EDProducer('ResidualGlobalCorrectionMakerG4e',
                                     applyHitQuality = cms.bool(True),
                                     useIdealGeometry = cms.bool(False),
                                     corFiles = cms.vstring(),
-                                    MagneticFieldLabel = cms.string(""),
+                                    MagneticFieldLabel = cms.string("PolyFit3DMf"),
                                     )
 
 process.trackrefitideal = cms.EDProducer('ResidualGlobalCorrectionMakerG4e',
@@ -133,7 +153,7 @@ process.mergedGlobalIdxs = cms.EDProducer("GlobalIdxProducer",
 # )
                                          
 # Path and EndPath definitions
-process.reconstruction_step = cms.Path(process.geopro+process.tracksFromMuons*process.trackrefitideal, #process.myRefittedTracks, 
+process.reconstruction_step = cms.Path(process.geopro+process.tracksFromMuons*process.trackrefit, #process.myRefittedTracks, 
                                        cms.Task(process.TTRHBuilderAngleAndTemplate, process.templates, process.SiPixelTemplateStoreESProducer))
 process.endjob_step = cms.EndPath(process.endOfProcess)
 process.RECOSIMoutput_step = cms.EndPath(process.RECOSIMoutput)
