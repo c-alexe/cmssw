@@ -61,10 +61,6 @@ using ROOT::RDF::RNode;
 
 using namespace boost::program_options;
 
-constexpr double lumiMC2016 = 3.33369e+08/2001.9e+03;
-constexpr double lumiMC2017 = 4.9803e+07/2001.9e+03;
-constexpr double lumiMC2018 = 6.84093e+07/2001.9e+03;
-
 int main(int argc, char* argv[]) {
 
   TStopwatch sw;
@@ -79,7 +75,8 @@ int main(int argc, char* argv[]) {
 	  ("help,h", "Help screen")
 	  ("minNumEvents",       value<int>()->default_value(100), "min number of events for a histogram to be accepted")
 	  ("minNumEventsPerBin", value<int>()->default_value(10), "min number of events for a bin of a histogram to be accepted")
-	  ("lumi",               value<float>()->default_value(16.1), "number of events in data")
+	  ("lumiData",           value<float>()->default_value(-1.), "number of events in data")
+	  ("lumiMC",             value<float>()->default_value(-1.), "number of events in MC")
 	  ("tag",                value<std::string>()->default_value("closure"), "run type, type of data used")
 	  ("run",                value<std::string>()->default_value("closure"), "number of iteration")
 	  ("saveMassFitHistos",  bool_switch()->default_value(false), "save pre and postfit mass distribution in 4D bin")
@@ -100,10 +97,7 @@ int main(int argc, char* argv[]) {
 	  ("runPrevResolFit",    value<std::string>()->default_value("closure"), "number of iteration")
 	  ("useKf",              bool_switch()->default_value(false), "use track input from Kalman Filter instead of CVH")
 	  ("useCB",              bool_switch()->default_value(false), "under development")
-	  ("scaleToData",        bool_switch()->default_value(false), "scale MC to data in 4D bin")
-	  ("y2016",              bool_switch()->default_value(false), "use 2016 data")
-	  ("y2017",              bool_switch()->default_value(false), "")
-	  ("y2018",              bool_switch()->default_value(false), "");
+	  ("scaleToData",        bool_switch()->default_value(false), "scale MC to data in 4D bin");
 
     store(parse_command_line(argc, argv, desc), vm);
     notify(vm);
@@ -119,7 +113,8 @@ int main(int argc, char* argv[]) {
   }
   
   int minNumEvents            = vm["minNumEvents"].as<int>();
-  float lumi                  = vm["lumi"].as<float>();
+  float lumiData              = vm["lumiData"].as<float>();
+  float lumiMC                = vm["lumiMC"].as<float>();
   float nRMSforGausFit        = vm["nRMSforGausFit"].as<float>();
   std::string tag             = vm["tag"].as<std::string>();
   std::string run             = vm["run"].as<std::string>();
@@ -136,9 +131,6 @@ int main(int argc, char* argv[]) {
   bool usePrevResolFit        = vm["usePrevResolFit"].as<bool>();
   bool useKf                  = vm["useKf"].as<bool>();
   bool useCB                  = vm["useCB"].as<bool>();
-  bool y2016                  = vm["y2016"].as<bool>();
-  bool y2017                  = vm["y2017"].as<bool>();
-  bool y2018                  = vm["y2018"].as<bool>();
   std::string tagPrevMassFit  = vm["tagPrevMassFit"].as<std::string>();
   std::string runPrevMassFit  = vm["runPrevMassFit"].as<std::string>();
   std::string tagPrevResolFit = vm["tagPrevResolFit"].as<std::string>();
@@ -147,7 +139,6 @@ int main(int argc, char* argv[]) {
   float maxRMS                = vm["maxRMS"].as<float>();
   
   assert( firstIter>=-1 && lastIter<=2 && firstIter<lastIter );
-  assert( y2016 || y2017 || y2018 );
 
   vector<float> pt_edges  = {25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0}; 
   vector<float> eta_edges = {-2.4, -2.2, -2.0, -1.8, -1.6, -1.4, -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0,
@@ -305,151 +296,68 @@ int main(int argc, char* argv[]) {
     // Read the input files relevant to the current iteration
     vector<string> in_files = {};
     if(iter>=0) { // MC
-      if(y2016) {
         in_files = {
-	      "/scratch/wmass/y2016/DYJetsToMuMu_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/NanoV9MCPostVFP_TrackFitV722_NanoProdv6/240509_040854/0000/NanoV9MCPostVFP_*.root",
-	      "/scratch/wmass/y2016/DYJetsToMuMu_H2ErratumFix_PDFExt_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/NanoV9MCPostVFP_TrackFitV722_NanoProdv6/240509_041233/0000/NanoV9MCPostVFP_*.root",
-	      "/scratch/wmass/y2016/DYJetsToMuMu_H2ErratumFix_PDFExt_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/NanoV9MCPostVFP_TrackFitV722_NanoProdv6/240509_041233/0001/NanoV9MCPostVFP_*.root",
-	      "/scratch/wmass/y2016/DYJetsToMuMu_H2ErratumFix_PDFExt_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/NanoV9MCPostVFP_TrackFitV722_NanoProdv6/240509_041233/0002/NanoV9MCPostVFP_*.root"
+	      "./globalcor_0_mc_reshaped.root"
 	    };
-      }
-      else if(y2017) {
-	    in_files = {
-	      "/scratch/wmass/y2017/DYJetsToMuMu_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/NanoV9MC2017_TrackFitV722_NanoProdv3/NanoV9MC2017_*.root"
-	    };
-      }
-      else if(y2018) {
-	    in_files = {
-	      "/scratch/wmass/y2018/DYJetsToMuMu_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/NanoV9MC2018_TrackFitV722_NanoProdv3/240124_121800/0000/NanoV9MC2018_*.root",
-	      "/scratch/wmass/y2018/DYJetsToMuMu_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/NanoV9MC2018_TrackFitV722_NanoProdv3/240124_121800/0001/NanoV9MC2018_*.root"
-	    };
-      }      
     }
     else { // data
-      if(y2016) {
-	    in_files = {
-	      "/scratch/wmass/y2016/SingleMuon/NanoV9Run2016FDataPostVFP_TrackFitV722_NanoProdv6/240509_051502/0000/NanoV9DataPostVFP_*.root",
-	      "/scratch/wmass/y2016/SingleMuon/NanoV9Run2016GDataPostVFP_TrackFitV722_NanoProdv6/240509_051653/0000/NanoV9DataPostVFP_*.root",
-	      "/scratch/wmass/y2016/SingleMuon/NanoV9Run2016GDataPostVFP_TrackFitV722_NanoProdv6/240509_051653/0001/NanoV9DataPostVFP_*.root",
-	      "/scratch/wmass/y2016/SingleMuon/NanoV9Run2016GDataPostVFP_TrackFitV722_NanoProdv6/240509_051653/0002/NanoV9DataPostVFP_*.root",
-	      "/scratch/wmass/y2016/SingleMuon/NanoV9Run2016GDataPostVFP_TrackFitV722_NanoProdv6/240509_051653/0003/NanoV9DataPostVFP_*.root",
-	      "/scratch/wmass/y2016/SingleMuon/NanoV9Run2016GDataPostVFP_TrackFitV722_NanoProdv6/240509_051653/0004/NanoV9DataPostVFP_*.root",
-	      "/scratch/wmass/y2016/SingleMuon/NanoV9Run2016HDataPostVFP_TrackFitV722_NanoProdv6/240509_051807/0000/NanoV9DataPostVFP_*.root",
-	      "/scratch/wmass/y2016/SingleMuon/NanoV9Run2016HDataPostVFP_TrackFitV722_NanoProdv6/240509_051807/0001/NanoV9DataPostVFP_*.root",
-	      "/scratch/wmass/y2016/SingleMuon/NanoV9Run2016HDataPostVFP_TrackFitV722_NanoProdv6/240509_051807/0002/NanoV9DataPostVFP_*.root",
-	      "/scratch/wmass/y2016/SingleMuon/NanoV9Run2016HDataPostVFP_TrackFitV722_NanoProdv6/240509_051807/0003/NanoV9DataPostVFP_*.root",
-	      "/scratch/wmass/y2016/SingleMuon/NanoV9Run2016HDataPostVFP_TrackFitV722_NanoProdv6/240509_051807/0004/NanoV9DataPostVFP_*.root",
-	      "/scratch/wmass/y2016/SingleMuon/NanoV9Run2016HDataPostVFP_TrackFitV722_NanoProdv6/240509_051807/0005/NanoV9DataPostVFP_*.root",
-	      "/scratch/wmass/y2016/SingleMuon/NanoV9Run2016HDataPostVFP_TrackFitV722_NanoProdv6/240509_051807/0006/NanoV9DataPostVFP_*.root"
-	    };
-      }
-      else if(y2017) {
-	    in_files = {
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017B_TrackFitV722_NanoProdv3/240127_110915/0000/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017B_TrackFitV722_NanoProdv3/240127_110915/0001/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017B_TrackFitV722_NanoProdv3/240127_110915/0002/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017B_TrackFitV722_NanoProdv3/240127_110915/0003/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017C_TrackFitV722_NanoProdv3/240127_115941/0000/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017C_TrackFitV722_NanoProdv3/240127_115941/0001/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017C_TrackFitV722_NanoProdv3/240127_115941/0002/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017C_TrackFitV722_NanoProdv3/240127_115941/0003/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017C_TrackFitV722_NanoProdv3/240127_115941/0004/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017C_TrackFitV722_NanoProdv3/240127_115941/0005/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017D_TrackFitV722_NanoProdv3/240127_120137/0000/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017D_TrackFitV722_NanoProdv3/240127_120137/0001/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017D_TrackFitV722_NanoProdv3/240127_120137/0002/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017E_TrackFitV722_NanoProdv3/240127_121346/0000/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017E_TrackFitV722_NanoProdv3/240127_121346/0001/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017E_TrackFitV722_NanoProdv3/240127_121346/0002/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017E_TrackFitV722_NanoProdv3/240127_121346/0003/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017E_TrackFitV722_NanoProdv3/240127_121346/0004/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017F_TrackFitV722_NanoProdv3/240127_122701/0000/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017F_TrackFitV722_NanoProdv3/240127_122701/0001/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017F_TrackFitV722_NanoProdv3/240127_122701/0002/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017F_TrackFitV722_NanoProdv3/240127_122701/0003/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017F_TrackFitV722_NanoProdv3/240127_122701/0004/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017F_TrackFitV722_NanoProdv3/240127_122701/0005/NanoV9Data2017_*.root",
-	      "/scratch/wmass/y2017/SingleMuon/NanoV9Run2017F_TrackFitV722_NanoProdv3/240127_122701/0006/NanoV9Data2017_*.root"
-	    };
-      }
-      else if(y2018) {
-	    in_files = {
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018A_TrackFitV722_NanoProdv3/231102_185937/0000/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018A_TrackFitV722_NanoProdv3/231102_185937/0001/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018A_TrackFitV722_NanoProdv3/231102_185937/0002/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018A_TrackFitV722_NanoProdv3/231102_185937/0003/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018A_TrackFitV722_NanoProdv3/231102_185937/0004/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018A_TrackFitV722_NanoProdv3/231102_185937/0005/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018A_TrackFitV722_NanoProdv3/231102_185937/0006/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018B_TrackFitV722_NanoProdv3/231103_093816/0000/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018B_TrackFitV722_NanoProdv3/231103_093816/0001/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018B_TrackFitV722_NanoProdv3/231103_093816/0002/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018C_TrackFitV722_NanoProdv3/231103_101410/0000/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018C_TrackFitV722_NanoProdv3/231103_101410/0001/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018C_TrackFitV722_NanoProdv3/231103_101410/0002/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018D_TrackFitV722_NanoProdv3/231107_134901/0000/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018D_TrackFitV722_NanoProdv3/231107_134901/0001/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018D_TrackFitV722_NanoProdv3/231107_134901/0002/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018D_TrackFitV722_NanoProdv3/231107_134901/0003/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018D_TrackFitV722_NanoProdv3/231107_134901/0004/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018D_TrackFitV722_NanoProdv3/231107_134901/0005/NanoV9Data2018_*.root",
-	      "/scratch/wmass/y2018/SingleMuon/NanoV9Run2018D_TrackFitV722_NanoProdv3/231107_134901/0006/NanoV9Data2018_*.root"
-	    }; 
-      }
+		in_files = {
+		  "./globalcor_0_data_reshaped.root"
+		};
     }
     
 	// Define dataframe for the input files relevant to the current iteration 
-    ROOT::RDataFrame d( "Events", in_files );
+    ROOT::RDataFrame d( "tree", in_files );
     auto dlast = std::make_unique<RNode>(d);
+  
+    std::cout <<"Total initial event count is " << *(dlast->Count()) << std::endl;
         
     if(iter>=0) { // MC
 
-      // Define the indices of individual muons passing selection criteria
-      dlast = std::make_unique<RNode>(dlast->Define("idxs", [&](UInt_t nMuon, RVecB Muon_looseId, RVecF Muon_dxybs, RVecB Muon_isGlobal, 
-								       RVecB Muon_highPurity, RVecB Muon_mediumId, RVecF Muon_pfRelIso04_all, RVecF Muon_pt, RVecF Muon_eta) -> RVecUI 
+      // Define the indices of individual tracks passing selection criteria
+      dlast = std::make_unique<RNode>(dlast->Define("idxs", [&](RVecB Muon_looseId, RVecB Muon_isGlobal, RVecB Muon_highPurity,
+	                                                            RVecB Muon_mediumId, RVecF Muon_pt, RVecF Muon_eta) -> RVecUI 
       {
 	    RVecUI out;
-	    for(unsigned int i = 0; i < nMuon; i++){
-	      if( Muon_looseId[i] && TMath::Abs(Muon_dxybs[i]) < 0.05 && Muon_isGlobal[i] && Muon_highPurity[i] && Muon_mediumId[i] && Muon_pfRelIso04_all[i]<0.15 &&
-	        Muon_pt[i] >= pt_edges[0] && Muon_pt[i] < pt_edges[ n_pt_bins ]  && Muon_eta[i]>=eta_edges[0] && Muon_eta[i]<=eta_edges[ n_eta_bins ] ) out.emplace_back(i);
+		std::cout<<"pt size "<<Muon_pt.size()<<" "<<Muon_pt[0]; 
+	    for(unsigned int i = 0; i < Muon_pt.size(); i++){
+	      if( Muon_looseId[i] && Muon_isGlobal[i] && Muon_highPurity[i] && Muon_mediumId[i] && Muon_pt[i] >= pt_edges[0] && Muon_pt[i] < pt_edges[ n_pt_bins ]  
+		  && Muon_eta[i]>=eta_edges[0] && Muon_eta[i]<=eta_edges[ n_eta_bins ] ) out.emplace_back(i);
 		}
 	    return out;
-      }, {"nMuon", "Muon_looseId", "Muon_dxybs", "Muon_isGlobal", "Muon_highPurity","Muon_mediumId", "Muon_pfRelIso04_all",
-		 useKf ? "Muon_pt" : "Muon_cvhidealPt", useKf ? "Muon_eta" : "Muon_cvhidealEta"} ));
+      }, {"muonLoose", "muonIsGlobal", "trackHighPurity","muonMedium", useKf ? "trackPt" : "UpdPt", useKf ? "trackEta" : "UpdEta"} ));
 
       // Filter to keep only events with exactly 2 oppositely charged, selected muons
-      dlast = std::make_unique<RNode>(dlast->Filter( [](RVecUI idxs, RVecI Muon_charge, bool HLT_IsoMu24 )
+      dlast = std::make_unique<RNode>(dlast->Filter( [](RVecUI idxs, RVecF Muon_charge)
 	  {
-	    if( idxs.size()!=2 || !HLT_IsoMu24) return false;
+	    if( idxs.size()!=2 ) return false;
 	    if( Muon_charge[idxs[0]]*Muon_charge[idxs[1]] > 0 ) return false;
 	    return true;
-      }, {"idxs", "Muon_charge", "HLT_IsoMu24"} ));
+      }, {"idxs", "trackCharge"} ));
       
       // Define MC weight
       dlast = std::make_unique<RNode>(dlast->Define("weight", [](float weight) -> float
 	  {
 	    return std::copysign(1.0, weight);
-      }, {"Generator_weight"} ));          
+      }, {"genweight"} ));          
       
       // Define pos and neg curvature k smeared according to the curvature biases A,e,M,c,d computed in previous iterations
       dlast = std::make_unique<RNode>(dlast->Define("Muon_ksmear", [&](RVecUI idxs,
-									   RVecF Muon_pt, RVecF Muon_eta, RVecF Muon_phi, RVecF Muon_mass, RVecI Muon_charge,
-									   UInt_t nGenPart, RVecI GenPart_status, RVecI GenPart_statusFlags, RVecI GenPart_pdgId,
-									   RVecF GenPart_pt, RVecF GenPart_eta, RVecF GenPart_phi, RVecF GenPart_mass) -> RVecF
+									   RVecF Muon_pt, RVecF Muon_eta, RVecF Muon_phi, RVecF Muon_charge,
+									   RVecF GenPart_pt, RVecF GenPart_eta, RVecF GenPart_phi) -> RVecF
 	  {
 	    RVecF out;
 	    unsigned int idxP = Muon_charge[idxs[0]]>0 ? idxs[0] : idxs[1];
 	    unsigned int idxM = Muon_charge[idxs[0]]>0 ? idxs[1] : idxs[0];
+	    double muon_mass = 0.1056583745; // GeV
 	    // reco muon
-	    ROOT::Math::PtEtaPhiMVector muP( Muon_pt[ idxP ], Muon_eta[ idxP ], Muon_phi[ idxP ], Muon_mass[ idxP ] );
-	    ROOT::Math::PtEtaPhiMVector muM( Muon_pt[ idxM ], Muon_eta[ idxM ], Muon_phi[ idxM ], Muon_mass[ idxM ] );
+	    ROOT::Math::PtEtaPhiMVector muP( Muon_pt[ idxP ], Muon_eta[ idxP ], Muon_phi[ idxP ], muon_mass );
+	    ROOT::Math::PtEtaPhiMVector muM( Muon_pt[ idxM ], Muon_eta[ idxM ], Muon_phi[ idxM ], muon_mass );
 	    // gen matching
 	    ROOT::Math::PtEtaPhiMVector gmuP( 0., 0., 0., 0. );
 	    ROOT::Math::PtEtaPhiMVector gmuM( 0., 0., 0., 0. );
-	    for(unsigned int i = 0; i < nGenPart; i++) {
-	      bool isGoodGenPart = (GenPart_status[i]==1 && (GenPart_statusFlags[i] & 1 || (GenPart_statusFlags[i] & (1<<5))) && TMath::Abs(GenPart_pdgId[i])==13);
-	      if(!isGoodGenPart) continue;
-	      ROOT::Math::PtEtaPhiMVector gen(GenPart_pt[i], GenPart_eta[i], GenPart_phi[i], GenPart_mass[i]);
+	    for(unsigned int i = 0; i < GenPart_pt.size() ; i++) {
+	      ROOT::Math::PtEtaPhiMVector gen(GenPart_pt[i], GenPart_eta[i], GenPart_phi[i], muon_mass);
 	      if( ROOT::Math::VectorUtil::DeltaR(gen, muP) < 0.1 && ROOT::Math::VectorUtil::DeltaR(gen, muM) > 0.1 ) gmuP = gen;
 	      else if( ROOT::Math::VectorUtil::DeltaR(gen, muP) > 0.1 && ROOT::Math::VectorUtil::DeltaR(gen, muM) < 0.1 ) gmuM = gen;
 	    }
@@ -509,11 +417,11 @@ int main(int argc, char* argv[]) {
 	      out.emplace_back(0.0);
 	    }
 	    return out;
-	  }, {"idxs", useKf ? "Muon_pt" : "Muon_cvhidealPt", useKf ? "Muon_eta" : "Muon_cvhidealEta", useKf ? "Muon_phi" : "Muon_cvhidealPhi", "Muon_mass",
-		 "Muon_charge", "nGenPart", "GenPart_status", "GenPart_statusFlags", "GenPart_pdgId", "GenPart_pt", "GenPart_eta", "GenPart_phi", "GenPart_mass"} ));
+	  }, {"idxs", useKf ? "trackPt" : "UpdPt", useKf ? "trackEta" : "UpdEta", useKf ? "trackPhi" : "UpdPhi",
+		 "trackCharge", "genPt", "genEta", "genPhi"} ));
       
 	  // Define eta+, pt+, eta-, pt- indexes for each muon pair that passed selection. The 1st entry in "indexes" is for reco, the 2nd for smear0
-	  dlast = std::make_unique<RNode>(dlast->Define("indexes", [&](RVecUI idxs, RVecF Muon_pt, RVecF Muon_eta, RVecI Muon_charge, RVecF Muon_ksmear) -> RVecUI
+	  dlast = std::make_unique<RNode>(dlast->Define("indexes", [&](RVecUI idxs, RVecF Muon_pt, RVecF Muon_eta, RVecF Muon_charge, RVecF Muon_ksmear) -> RVecUI
 	  {
 	    unsigned int idxP = Muon_charge[idxs[0]]>0 ? idxs[0] : idxs[1];
 	    unsigned int idxM = Muon_charge[idxs[0]]>0 ? idxs[1] : idxs[0];
@@ -556,7 +464,7 @@ int main(int argc, char* argv[]) {
     	  }
     	}
     	return out;
-	  }, {"idxs", useKf ? "Muon_pt" : "Muon_cvhidealPt", useKf ? "Muon_eta" : "Muon_cvhidealEta", "Muon_charge", "Muon_ksmear"} ));
+	  }, {"idxs", useKf ? "trackPt" : "UpdPt", useKf ? "trackEta" : "UpdEta", "trackCharge", "Muon_ksmear"} ));
       
 	  for(unsigned int r = 0 ; r<recos.size(); r++) {
         dlast = std::make_unique<RNode>(dlast->Define( TString(("index_"+recos[r]).c_str()), [r](RVecUI indexes) 
@@ -567,23 +475,20 @@ int main(int argc, char* argv[]) {
       
 	  // Define gen, reco, smear0 mass per muon pair
 	  dlast = std::make_unique<RNode>(dlast->Define("masses", [&](RVecUI idxs,
-								       RVecF Muon_pt, RVecF Muon_eta, RVecF Muon_phi, RVecF Muon_mass, RVecI Muon_charge,
-								       UInt_t nGenPart, RVecI GenPart_status, RVecI GenPart_statusFlags, RVecI GenPart_pdgId,
-								       RVecF GenPart_pt, RVecF GenPart_eta, RVecF GenPart_phi, RVecF GenPart_mass,
-								       RVecF Muon_ksmear) -> RVecF
+								       RVecF Muon_pt, RVecF Muon_eta, RVecF Muon_phi, RVecF Muon_charge,
+								       RVecF GenPart_pt, RVecF GenPart_eta, RVecF GenPart_phi, RVecF Muon_ksmear) -> RVecF
 	  {
 	    RVecF out;
 	    unsigned int idxP = Muon_charge[idxs[0]]>0 ? idxs[0] : idxs[1];
 	    unsigned int idxM = Muon_charge[idxs[0]]>0 ? idxs[1] : idxs[0];
-	    ROOT::Math::PtEtaPhiMVector muP( Muon_pt[ idxP ], Muon_eta[ idxP ], Muon_phi[ idxP ], Muon_mass[ idxP ] );
-	    ROOT::Math::PtEtaPhiMVector muM( Muon_pt[ idxM ], Muon_eta[ idxM ], Muon_phi[ idxM ], Muon_mass[ idxM ] );
+	    double muon_mass = 0.1056583745; // GeV
+	    ROOT::Math::PtEtaPhiMVector muP( Muon_pt[ idxP ], Muon_eta[ idxP ], Muon_phi[ idxP ], muon_mass );
+	    ROOT::Math::PtEtaPhiMVector muM( Muon_pt[ idxM ], Muon_eta[ idxM ], Muon_phi[ idxM ], muon_mass );
 	    // gen matching
 		ROOT::Math::PtEtaPhiMVector gmuP( 0., 0., 0., 0. );
 	    ROOT::Math::PtEtaPhiMVector gmuM( 0., 0., 0., 0. );
-	    for(unsigned int i = 0; i < nGenPart; i++) {
-	      bool isGoodGenPart = (GenPart_status[i]==1 && (GenPart_statusFlags[i] & 1 || (GenPart_statusFlags[i] & (1<<5))) && TMath::Abs(GenPart_pdgId[i])==13);
-	      if(!isGoodGenPart) continue;
-	      ROOT::Math::PtEtaPhiMVector gen(GenPart_pt[i], GenPart_eta[i], GenPart_phi[i], GenPart_mass[i]);
+	    for(unsigned int i = 0; i < GenPart_pt.size(); i++) {
+	      ROOT::Math::PtEtaPhiMVector gen(GenPart_pt[i], GenPart_eta[i], GenPart_phi[i], muon_mass);
 	      if( ROOT::Math::VectorUtil::DeltaR(gen, muP) < 0.1 && ROOT::Math::VectorUtil::DeltaR(gen, muM) > 0.1) gmuP = gen;
 	      else if( ROOT::Math::VectorUtil::DeltaR(gen, muP) > 0.1 && ROOT::Math::VectorUtil::DeltaR(gen, muM) < 0.1) gmuM = gen;
 	    }
@@ -593,15 +498,14 @@ int main(int argc, char* argv[]) {
 	      out.emplace_back( (muP + muM).M() );
     	  float ksmear0P = Muon_ksmear[0]>0. ? Muon_ksmear[0] : 1./(pt_edges[0]-0.01);
 	      float ksmear0M = Muon_ksmear[1]>0. ? Muon_ksmear[1] : 1./(pt_edges[0]-0.01);	  
-    	  ROOT::Math::PtEtaPhiMVector muP_smear0( 1./ksmear0P, Muon_eta[ idxP ], Muon_phi[ idxP ], Muon_mass[ idxP ] );
-	      ROOT::Math::PtEtaPhiMVector muM_smear0( 1./ksmear0M, Muon_eta[ idxM ], Muon_phi[ idxM ], Muon_mass[ idxM ] );      
+    	  ROOT::Math::PtEtaPhiMVector muP_smear0( 1./ksmear0P, Muon_eta[ idxP ], Muon_phi[ idxP ], muon_mass );
+	      ROOT::Math::PtEtaPhiMVector muM_smear0( 1./ksmear0M, Muon_eta[ idxM ], Muon_phi[ idxM ], muon_mass );      
 	      out.emplace_back( (muP_smear0 + muM_smear0).M() );	
 	    } 
 	
 	    return out;
-      }, {"idxs", useKf ? "Muon_pt" : "Muon_cvhidealPt", useKf ? "Muon_eta" : "Muon_cvhidealEta", useKf ? "Muon_phi" : "Muon_cvhidealPhi",
-	   "Muon_mass", "Muon_charge", "nGenPart", "GenPart_status", "GenPart_statusFlags", "GenPart_pdgId", "GenPart_pt", "GenPart_eta",
-	   "GenPart_phi", "GenPart_mass", "Muon_ksmear"} ));
+      }, {"idxs", useKf ? "trackPt" : "UpdPt", useKf ? "trackEta" : "UpdEta", useKf ? "trackPhi" : "UpdPhi",
+		 "trackCharge", "genPt", "genEta", "genPhi", "Muon_ksmear"} ));
 
       for(unsigned int r = 0 ; r<recos.size(); r++) {
 		if(skipUnsmearedReco && recos[r]=="reco") continue;
@@ -626,7 +530,7 @@ int main(int argc, char* argv[]) {
       }
       
       // Define jacobian weights per event
-      dlast = std::make_unique<RNode>(dlast->Define("weights_jac", [n_bins,recos,h_map,h_jac_map,idx_map](RVecF masses, RVecUI indexes) -> RVecF
+      dlast = std::make_unique<RNode>(dlast->Define("weights_jac", [n_bins,recos,skipUnsmearedReco,h_map,h_jac_map,idx_map](RVecF masses, RVecUI indexes) -> RVecF
 	  {
 	    RVecF out;
 	    if(masses.size()==0) {
@@ -708,32 +612,31 @@ int main(int argc, char* argv[]) {
     
     else { // data
 	  // Define indices of individual muons that pass the selection
-	  dlast = std::make_unique<RNode>(dlast->Define("idxs", [&](UInt_t nMuon, RVecB Muon_looseId, RVecF Muon_dxybs, RVecB Muon_isGlobal,
-								RVecB Muon_highPurity, RVecB Muon_mediumId, RVecF Muon_pfRelIso04_all,
-								RVecF Muon_pt, RVecF Muon_eta) -> RVecUI
+	  dlast = std::make_unique<RNode>(dlast->Define("idxs", [&](RVecB Muon_looseId, RVecB Muon_isGlobal,
+								RVecB Muon_highPurity, RVecB Muon_mediumId, RVecF Muon_pt, RVecF Muon_eta) -> RVecUI
 	  {
 	    RVecUI out;
-	    for(unsigned int i = 0; i < nMuon; i++) {
-	      if( Muon_looseId[i] && TMath::Abs(Muon_dxybs[i]) < 0.05 && Muon_isGlobal[i] && Muon_highPurity[i] && Muon_mediumId[i] && Muon_pfRelIso04_all[i]<0.15 &&
+	    for(unsigned int i = 0; i < Muon_pt.size(); i++) {
+	      if( Muon_looseId[i] && Muon_isGlobal[i] && Muon_highPurity[i] && Muon_mediumId[i] &&
 	      Muon_pt[i] >= pt_edges[0] && Muon_pt[i] < pt_edges[ n_pt_bins ]  && Muon_eta[i]>=eta_edges[0] && Muon_eta[i]<=eta_edges[ n_eta_bins ] ) out.emplace_back(i);
 	    }
 	    return out;
-	  }, {"nMuon", "Muon_looseId", "Muon_dxybs", "Muon_isGlobal", "Muon_highPurity", "Muon_mediumId", "Muon_pfRelIso04_all",
-	  useKf ? "Muon_pt" : "Muon_cvhPt", useKf ? "Muon_eta" : "Muon_cvhEta"} ));
+	  }, {"muonLoose", "muonIsGlobal", "trackHighPurity","muonMedium", useKf ? "trackPt" : "UpdPt", useKf ? "trackEta" : "UpdEta"} ));
+	  
       
       // Filter for muon pairs
-      dlast = std::make_unique<RNode>(dlast->Filter( [](RVecUI idxs, RVecI Muon_charge, bool HLT_IsoMu24 )
+      dlast = std::make_unique<RNode>(dlast->Filter( [](RVecUI idxs, RVecF Muon_charge )
 	  {
-	    if( idxs.size()!=2 || !HLT_IsoMu24) return false;
+	    if( idxs.size()!=2 ) return false;
 	    if( Muon_charge[idxs[0]]*Muon_charge[idxs[1]] > 0 ) return false;
 	    return true;
-      }, {"idxs", "Muon_charge", "HLT_IsoMu24"} ));      
+      }, {"idxs", "trackCharge"} ));      
 	  
       // Define data weight = 1.0
       dlast = std::make_unique<RNode>(dlast->Define("weight", []()->float{ return 1.0; }, {} ));          
 
 	  // Define eta+, pt+, eta-, pt- indexes for each muon pair that passed selection   
-	  dlast = std::make_unique<RNode>(dlast->Define("index_data", [&](RVecUI idxs, RVecF Muon_pt, RVecF Muon_eta, RVecI Muon_charge) -> unsigned int
+	  dlast = std::make_unique<RNode>(dlast->Define("index_data", [&](RVecUI idxs, RVecF Muon_pt, RVecF Muon_eta, RVecF Muon_charge) -> unsigned int
 	  {
 	    unsigned int idxP = Muon_charge[idxs[0]]>0 ? idxs[0] : idxs[1];
 	    unsigned int idxM = Muon_charge[idxs[0]]>0 ? idxs[1] : idxs[0];
@@ -766,20 +669,21 @@ int main(int argc, char* argv[]) {
 	      }
 	    }
 	    return out;
-	  }, {"idxs", useKf ? "Muon_pt" : "Muon_cvhPt", useKf ? "Muon_eta" : "Muon_cvhEta", "Muon_charge"} ));
+	  }, {"idxs", useKf ? "trackPt" : "UpdPt", useKf ? "trackEta" : "UpdEta", "trackCharge"} ));
 
 	  // Define mass in data    
 	  dlast = std::make_unique<RNode>(dlast->Define("data_m", [&](RVecUI idxs,
-								       RVecF Muon_pt, RVecF Muon_eta, RVecF Muon_phi, RVecF Muon_mass, RVecI Muon_charge) -> float
+								       RVecF Muon_pt, RVecF Muon_eta, RVecF Muon_phi, RVecF Muon_charge) -> float
 	  {
 	    float out = 0.0;
 	    unsigned int idxP = Muon_charge[idxs[0]]>0 ? idxs[0] : idxs[1];
 	    unsigned int idxM = Muon_charge[idxs[0]]>0 ? idxs[1] : idxs[0];
-	    ROOT::Math::PtEtaPhiMVector muP( Muon_pt[ idxP ], Muon_eta[ idxP ], Muon_phi[ idxP ], Muon_mass[ idxP ] );
-	    ROOT::Math::PtEtaPhiMVector muM( Muon_pt[ idxM ], Muon_eta[ idxM ], Muon_phi[ idxM ], Muon_mass[ idxM ] );
+	    double muon_mass = 0.1056583745; // GeV
+	    ROOT::Math::PtEtaPhiMVector muP( Muon_pt[ idxP ], Muon_eta[ idxP ], Muon_phi[ idxP ], muon_mass );
+	    ROOT::Math::PtEtaPhiMVector muM( Muon_pt[ idxM ], Muon_eta[ idxM ], Muon_phi[ idxM ], muon_mass );
     	out = (muP + muM).M();	  
     	return out;
-	  }, {"idxs", useKf ? "Muon_pt" : "Muon_cvhPt", useKf ? "Muon_eta" : "Muon_cvhEta", useKf ? "Muon_phi" : "Muon_cvhPhi", "Muon_mass", "Muon_charge"} ));           
+	  }, {"idxs", useKf ? "trackPt" : "UpdPt", useKf ? "trackEta" : "UpdEta", useKf ? "trackPhi" : "UpdPhi", "trackCharge"} ));           
     }
     
     // Vector of pointers to histograms output by the dataframe
@@ -830,12 +734,8 @@ int main(int argc, char* argv[]) {
 	  fout->cd();
 	  std::cout << "Writing histos..." << std::endl;
 	  
-	  // Scale MC to luminosity in data
-	  double lumiMC = lumiMC2016;
-	  if(y2017)      lumiMC = lumiMC2017;
-	  else if(y2018) lumiMC = lumiMC2018;
-	  
-	  double sf = lumi>0. ? lumi/lumiMC : 1.0; //double(lumi)/double(minNumEvents);
+	  // Scale MC to luminosity in data 
+	  double sf = lumiData>0. ? lumiData/lumiMC : 1.0; //
 	  
 	  for(auto h : df_histos1D) {
 		if(iter>=0) h->Scale(sf); // scale only for MC
@@ -1090,7 +990,7 @@ int main(int argc, char* argv[]) {
 	        jscale(bin_counter) = h_jscale_i->GetBinContent(im+1);
 	        jwidth(bin_counter) = h_jwidth_i->GetBinContent(im+1);  
 	        double mcErr_im = h_nom_i->GetBinError(im+1);
-	        inv_V(bin_counter,bin_counter) = lumi>0. ?
+	        inv_V(bin_counter,bin_counter) = lumiData>0. ?
 	        1./(y(bin_counter)  + mcErr_im*mcErr_im ) :
 	        1./(2*mcErr_im*mcErr_im);
 	        //cout << TMath::Sqrt(y(bin_counter)) << " (+) " << h_nom_i->GetBinError(im+1) << endl;

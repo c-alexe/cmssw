@@ -33,8 +33,8 @@ def loop_one():
         ' --minNumMassBins=4 '+\
         ' --rebin=2 '+\
         ' --fitNorm --fitWidth '+\
-        '  --y2016 --scaleToData '
-    # --lumi
+        ' --scaleToData '
+    # --lumiData= --lumiMC=
     if not args.forceIter>0:
         print(cmd_histo_iter0)
     if not (args.dryrun or args.forceIter>0):
