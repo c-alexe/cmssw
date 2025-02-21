@@ -319,7 +319,6 @@ int main(int argc, char* argv[]) {
 	                                                            RVecB Muon_mediumId, RVecF Muon_pt, RVecF Muon_eta) -> RVecUI 
       {
 	    RVecUI out;
-		std::cout<<"pt size "<<Muon_pt.size()<<" "<<Muon_pt[0]; 
 	    for(unsigned int i = 0; i < Muon_pt.size(); i++){
 	      if( Muon_looseId[i] && Muon_isGlobal[i] && Muon_highPurity[i] && Muon_mediumId[i] && Muon_pt[i] >= pt_edges[0] && Muon_pt[i] < pt_edges[ n_pt_bins ]  
 		  && Muon_eta[i]>=eta_edges[0] && Muon_eta[i]<=eta_edges[ n_eta_bins ] ) out.emplace_back(i);
@@ -625,7 +624,7 @@ int main(int argc, char* argv[]) {
 	  
       
       // Filter for muon pairs
-      dlast = std::make_unique<RNode>(dlast->Filter( [](RVecUI idxs, RVecF Muon_charge )
+      dlast = std::make_unique<RNode>(dlast->Filter( [](RVecUI idxs, RVecF Muon_charge)
 	  {
 	    if( idxs.size()!=2 ) return false;
 	    if( Muon_charge[idxs[0]]*Muon_charge[idxs[1]] > 0 ) return false;
@@ -965,6 +964,19 @@ int main(int argc, char* argv[]) {
 	      h_masks->SetBinContent(ibin+1, 0.0);
 	      continue;
 	    }
+		
+		unsigned int n_fit_params = 3;
+	    if(!fitWidth) n_fit_params--;
+	    if(!fitNorm)  n_fit_params--;
+
+		if( n_mass_bins <= n_fit_params ) {
+			h_scales->SetBinContent(ibin+1, 0.0);
+			h_widths->SetBinContent(ibin+1, 0.0);
+			h_norms->SetBinContent(ibin+1, 0.0);
+			h_probs->SetBinContent(ibin+1, 0.0);
+			h_masks->SetBinContent(ibin+1, 0.0);
+			continue;
+		}
 
 	    inevents = h_data_i->Integral();
 	    inmassbins = n_mass_bins;
@@ -999,9 +1011,6 @@ int main(int argc, char* argv[]) {
 	      }
 	    }
 
-	    unsigned int n_fit_params = 3;
-	    if(!fitWidth) n_fit_params--;
-	    if(!fitNorm)  n_fit_params--;
 	    MatrixXd jac(n_mass_bins, n_fit_params);
 	    for(unsigned int ib=0; ib<n_mass_bins;ib++){
 	      jac(ib, 0) = jscale(ib);
