@@ -46,7 +46,7 @@ int reshape_tree() {
    tree_out->Branch("muonMedium",&muon_medium_out, basketSize);
 
    // read initial tree
-   TFile* fin = TFile::Open("/afs/cern.ch/user/c/calexe/CMSSW_14_0_18/src/RecoTracker/TrackProducer/test/globalcor_0_data.root", "READ");
+   TFile* fin = TFile::Open("/gpfs/ddn/srm/cms/store/user/calexe/SingleMuon/CVH_refit_Data/", "READ");
    auto tree_in = fin->Get<TTree>("tree");
 
    ULong64_t event_in;
