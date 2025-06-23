@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
 	  ("nRMSforGausFit",     value<float>()->default_value(-1.), "number of RMS for Gaus mass difference fit")
 	  ("minNumMassBins",     value<int>()->default_value(4), "min number of mass bins for a histogram to be accepted")
 	  ("maxRMS",             value<float>()->default_value(-1.), "max RMS of Gaus mass difference fit for a 4D bin to be included in the mass fit")
-	  ("rebin",              value<int>()->default_value(2), "rebin before fit")
+	  ("rebin",              value<int>()->default_value(1), "rebin before fit")
 	  ("fitWidth",           bool_switch()->default_value(false), "compute resolution bias")
 	  ("fitNorm",            bool_switch()->default_value(false), "compute difference in normalisation in 4D bin")
 	  ("usePrevMassFit",     bool_switch()->default_value(false), "use previous mass fit")
@@ -138,9 +138,11 @@ int main(int argc, char* argv[]) {
   bool scaleToData            = vm["scaleToData"].as<bool>();
   float maxRMS                = vm["maxRMS"].as<float>();
   
-  assert( firstIter>=-1 && lastIter<=2 && firstIter<lastIter );
+  assert( firstIter>=-1 && lastIter<=2 && firstIter<=lastIter );
 
   vector<float> pt_edges  = {25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0}; 
+  //vector<float> pt_edges  = {25.0, 35.0, 45.0, 55.0}; 
+  //vector<float> eta_edges = {-2.4, -2.0, -1.6, -1.2, -0.8, -0.4, 0.0, 0.4, 0.8, 1.2, 1.6, 2.0, 2.4};
   vector<float> eta_edges = {-2.4, -2.2, -2.0, -1.8, -1.6, -1.4, -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0,
                              0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4};
 
@@ -297,12 +299,12 @@ int main(int argc, char* argv[]) {
     vector<string> in_files = {};
     if(iter>=0) { // MC
         in_files = {
-	      "./globalcor_0_mc_reshaped.root"
+	      "./inoutfiles/DYto2Mu_MLL-50to120_TuneCP5_13p6TeV_powheg-pythia8/CVH_refit_MC/*"
 	    };
     }
     else { // data
 		in_files = {
-		  "./globalcor_0_data_reshaped.root"
+		  "./inoutfiles/Muon/CVH_refit_Data_E/*"
 		};
     }
     
@@ -316,15 +318,15 @@ int main(int argc, char* argv[]) {
 
       // Define the indices of individual tracks passing selection criteria
       dlast = std::make_unique<RNode>(dlast->Define("idxs", [&](RVecB Muon_looseId, RVecB Muon_isGlobal, RVecB Muon_highPurity,
-	                                                            RVecB Muon_mediumId, RVecF Muon_pt, RVecF Muon_eta) -> RVecUI 
+	                                                            RVecB Muon_mediumId, RVecF Muon_pt, RVecF Muon_eta, RVecI Muon_trigger) -> RVecUI 
       {
 	    RVecUI out;
 	    for(unsigned int i = 0; i < Muon_pt.size(); i++){
 	      if( Muon_looseId[i] && Muon_isGlobal[i] && Muon_highPurity[i] && Muon_mediumId[i] && Muon_pt[i] >= pt_edges[0] && Muon_pt[i] < pt_edges[ n_pt_bins ]  
-		  && Muon_eta[i]>=eta_edges[0] && Muon_eta[i]<=eta_edges[ n_eta_bins ] ) out.emplace_back(i);
+		  && Muon_eta[i]>=eta_edges[0] && Muon_eta[i]<=eta_edges[ n_eta_bins ] && Muon_trigger[i] ) out.emplace_back(i);
 		}
 	    return out;
-      }, {"muonLoose", "muonIsGlobal", "trackHighPurity","muonMedium", useKf ? "trackPt" : "UpdPt", useKf ? "trackEta" : "UpdEta"} ));
+      }, {"muonLoose", "muonIsGlobal", "trackHighPurity","muonMedium", useKf ? "trackPt" : "UpdPt", useKf ? "trackEta" : "UpdEta", "HLT_IsoMu24"} ));
 
       // Filter to keep only events with exactly 2 oppositely charged, selected muons
       dlast = std::make_unique<RNode>(dlast->Filter( [](RVecUI idxs, RVecF Muon_charge)
@@ -612,15 +614,15 @@ int main(int argc, char* argv[]) {
     else { // data
 	  // Define indices of individual muons that pass the selection
 	  dlast = std::make_unique<RNode>(dlast->Define("idxs", [&](RVecB Muon_looseId, RVecB Muon_isGlobal,
-								RVecB Muon_highPurity, RVecB Muon_mediumId, RVecF Muon_pt, RVecF Muon_eta) -> RVecUI
+								RVecB Muon_highPurity, RVecB Muon_mediumId, RVecF Muon_pt, RVecF Muon_eta, RVecI Muon_trigger) -> RVecUI
 	  {
 	    RVecUI out;
 	    for(unsigned int i = 0; i < Muon_pt.size(); i++) {
 	      if( Muon_looseId[i] && Muon_isGlobal[i] && Muon_highPurity[i] && Muon_mediumId[i] &&
-	      Muon_pt[i] >= pt_edges[0] && Muon_pt[i] < pt_edges[ n_pt_bins ]  && Muon_eta[i]>=eta_edges[0] && Muon_eta[i]<=eta_edges[ n_eta_bins ] ) out.emplace_back(i);
+	      Muon_pt[i] >= pt_edges[0] && Muon_pt[i] < pt_edges[ n_pt_bins ]  && Muon_eta[i]>=eta_edges[0] && Muon_eta[i]<=eta_edges[ n_eta_bins ] && Muon_trigger[i] ) out.emplace_back(i);
 	    }
 	    return out;
-	  }, {"muonLoose", "muonIsGlobal", "trackHighPurity","muonMedium", useKf ? "trackPt" : "UpdPt", useKf ? "trackEta" : "UpdEta"} ));
+	  }, {"muonLoose", "muonIsGlobal", "trackHighPurity","muonMedium", useKf ? "trackPt" : "UpdPt", useKf ? "trackEta" : "UpdEta", "HLT_IsoMu24"} ));
 	  
       
       // Filter for muon pairs
