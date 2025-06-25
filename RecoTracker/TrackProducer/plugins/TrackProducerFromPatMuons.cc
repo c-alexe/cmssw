@@ -57,7 +57,7 @@ void TrackProducerFromPatMuons::produce(edm::StreamID, edm::Event &iEvent, const
     if (trackRef.isNonnull() && trackRef->extra().isAvailable()) {
       tracksOut.emplace_back(*trackRef);
       associdxs.push_back(iMuon);
-    }
+    } 
   }
   auto trackouth = iEvent.emplace(outputTrack_, std::move(tracksOut));
   assocfiller.insert(trackouth, associdxs.begin(), associdxs.end());

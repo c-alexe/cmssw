@@ -14,6 +14,7 @@
 
 #include "Geometry/CommonTopologies/interface/TrapezoidalStripTopology.h"
 
+#include "FWCore/Common/interface/TriggerNames.h"
 
 
 class ResidualGlobalCorrectionMakerG4e : public ResidualGlobalCorrectionMakerBase
@@ -339,6 +340,11 @@ void ResidualGlobalCorrectionMakerG4e::produce(edm::Event &iEvent, const edm::Ev
   if (doMuonAssoc_) {
     iEvent.getByToken(inputMuonAssoc_, muonAssoc);
   }
+
+  Handle<edm::TriggerResults> triggerResults;
+  if (doTrigger_)  {
+    iEvent.getByToken(inputTriggerResults_, triggerResults);
+  }
   
   TkClonerImpl const& cloner = static_cast<TkTransientTrackingRecHitBuilder const *>(ttrh.product())->cloner();
 
@@ -381,6 +387,37 @@ void ResidualGlobalCorrectionMakerG4e::produce(edm::Event &iEvent, const edm::Ev
     momCovV.assign(muonAssoc->ref()->size(), std::vector<float>());
   }
 
+  if (doTrigger_) {
+    auto const &triggerNames = iEvent.triggerNames(*triggerResults);
+    
+    if (triggerNames.parameterSetID() != triggerNamesId_) {
+      //trigger menu changed, update list of trigger path idxs
+      
+      triggerIdxs_.clear();
+      
+      for (auto const &trigger : triggers_) {
+        const std::string basename = trigger + "_v";
+        std::size_t idx = triggerNames.size();
+        for (std::size_t itrig = 0; itrig < triggerNames.size(); ++itrig) {
+          if (triggerNames.triggerName(itrig).find(basename) == 0) {
+            idx = itrig;
+            break;
+          }
+        }
+        triggerIdxs_.push_back(idx);
+      }
+      
+      triggerNamesId_ = triggerNames.parameterSetID();
+    }
+
+    // set trigger decision bits
+    for (std::size_t itrig = 0; itrig < triggerIdxs_.size(); ++itrig) {
+      const std::size_t idx = triggerIdxs_[itrig];
+      triggerDecisions_[itrig] = idx < triggerResults->size() ? triggerResults->accept(idx) : false;
+    }
+  
+  }
+  
   for (unsigned int itrack = 0; itrack < trackOrigH->size(); ++itrack) {
     const reco::Track &track = (*trackOrigH)[itrack];
     const reco::TrackRef trackref(trackOrigH, itrack);
