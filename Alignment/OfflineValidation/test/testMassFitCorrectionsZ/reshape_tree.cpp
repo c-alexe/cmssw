@@ -35,9 +35,9 @@ int main() {
     auto start = std::chrono::high_resolution_clock::now();
 
     // Read input and output directory names
-    const std::string input_directory = "/gpfs/ddn/srm/cms/store/user/calexe/Muon/Run2022F-22Sep2023-v2-with-CVH/250606_161622/";
+    const std::string input_directory = "/afs/cern.ch/user/c/calexe/CMSSW_14_0_18/src/RecoTracker/TrackProducer/test/globalcor/";
     // "/gpfs/ddn/srm/cms/store/user/calexe/DYto2Mu_MLL-50to120_keepMDSHits_TuneCP5_13p6TeV_powheg-pythia8/CVH_refit_MC/250507_094615/";
-    const std::string output_directory = "/home/users/alexe/workingarea/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/Run2022F-22Sep2023-v2-with-CVH/";
+    const std::string output_directory = "/afs/cern.ch/user/c/calexe/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/";
     // "/home/users/alexe/workingarea/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/DYto2Mu_MLL-50to120_keepMDSHits_TuneCP5_13p6TeV_powheg-pythia8_with_CVH/";
     const fs::path output_dir_path{output_directory};
 
@@ -61,7 +61,7 @@ int main() {
             
             ULong64_t event_in;
             int muon_trigger_in;
-            float pt_in, eta_in, phi_in, charge_in, gen_pt_in, gen_eta_in, gen_phi_in, gen_weight_in;
+            float pt_in, eta_in, phi_in, charge_in, gen_pt_in, gen_eta_in, gen_phi_in, gen_weight_in, gen_charge_in;
             bool muon_loose_in, muon_is_global_in, track_purity_in, muon_medium_in;
 
             tree_in->SetBranchAddress("event", &event_in);
@@ -72,6 +72,7 @@ int main() {
             tree_in->SetBranchAddress("genEta", &gen_eta_in);
             tree_in->SetBranchAddress("genPhi", &gen_phi_in);
             tree_in->SetBranchAddress("genweight", &gen_weight_in);
+            tree_in->SetBranchAddress("genCharge", &gen_charge_in);
             tree_in->SetBranchAddress("trackCharge", &charge_in);
             tree_in->SetBranchAddress("muonLoose", &muon_loose_in);
             tree_in->SetBranchAddress("muonIsGlobal", &muon_is_global_in);
@@ -91,7 +92,7 @@ int main() {
             // define RVecs
             ULong64_t event_out;
             RVecI muon_trigger_out;
-            RVecF pt_out, eta_out, phi_out, charge_out, gen_pt_out, gen_eta_out, gen_phi_out;
+            RVecF pt_out, eta_out, phi_out, charge_out, gen_pt_out, gen_eta_out, gen_phi_out, gen_charge_out;
             float gen_weight_out;
             RVecB muon_loose_out, muon_is_global_out, track_purity_out, muon_medium_out;
 
@@ -104,6 +105,7 @@ int main() {
             tree_out->Branch("genEta", &gen_eta_out, basketSize);
             tree_out->Branch("genPhi", &gen_phi_out, basketSize);  
             tree_out->Branch("genweight", &gen_weight_out, basketSize);
+            tree_out->Branch("genCharge", &gen_charge_out, basketSize);
             tree_out->Branch("trackCharge", &charge_out, basketSize);
             tree_out->Branch("muonLoose",&muon_loose_out, basketSize);
             tree_out->Branch("muonIsGlobal",&muon_is_global_out, basketSize);
@@ -129,6 +131,7 @@ int main() {
                     gen_pt_out.resize(0);
                     gen_eta_out.resize(0);
                     gen_phi_out.resize(0);
+                    gen_charge_out.resize(0);
                     charge_out.resize(0);
                     muon_loose_out.resize(0);
                     muon_is_global_out.resize(0);
@@ -143,6 +146,7 @@ int main() {
                     gen_pt_out.emplace_back(gen_pt_in);
                     gen_eta_out.emplace_back(gen_eta_in);
                     gen_phi_out.emplace_back(gen_phi_in);
+                    gen_charge_out.emplace_back(gen_charge_in);
                     charge_out.emplace_back(charge_in);           
                     muon_loose_out.emplace_back(muon_loose_in);
                     muon_is_global_out.emplace_back(muon_is_global_in);
@@ -159,6 +163,7 @@ int main() {
                     gen_pt_out.emplace_back(gen_pt_in);
                     gen_eta_out.emplace_back(gen_eta_in);
                     gen_phi_out.emplace_back(gen_phi_in);
+                    gen_charge_out.emplace_back(gen_charge_in);
                     charge_out.emplace_back(charge_in);           
                     muon_loose_out.emplace_back(muon_loose_in);
                     muon_is_global_out.emplace_back(muon_is_global_in);
