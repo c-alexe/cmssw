@@ -75,8 +75,8 @@ int main(int argc, char* argv[]) {
 	  ("help,h", "Help screen")
 	  ("minNumEvents",       value<int>()->default_value(100), "min number of events for a histogram to be accepted")
 	  ("minNumEventsPerBin", value<int>()->default_value(10), "min number of events for a bin of a histogram to be accepted")
-	  ("lumiData",           value<float>()->default_value(-1.), "number of events in data")
-	  ("lumiMC",             value<float>()->default_value(-1.), "number of events in MC")
+	  ("lumiData",           value<float>()->default_value(-1.), "recorded luminosity in fb^-1")
+	  ("lumiMC",             value<float>()->default_value(-1.), "number of events in MC divided by process cross section in fb at relevant sqrt(s)")
 	  ("tag",                value<std::string>()->default_value("closure"), "run type, type of data used")
 	  ("run",                value<std::string>()->default_value("closure"), "number of iteration")
 	  ("saveMassFitHistos",  bool_switch()->default_value(false), "save pre and postfit mass distribution in 4D bin")
@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
 	  ("nRMSforGausFit",     value<float>()->default_value(-1.), "number of RMS for Gaus mass difference fit")
 	  ("minNumMassBins",     value<int>()->default_value(4), "min number of mass bins for a histogram to be accepted")
 	  ("maxRMS",             value<float>()->default_value(-1.), "max RMS of Gaus mass difference fit for a 4D bin to be included in the mass fit")
-	  ("rebin",              value<int>()->default_value(1), "rebin before fit")
+	  ("rebin",              value<int>()->default_value(1), "rebin 4D bin histograms before scale fit")
 	  ("fitWidth",           bool_switch()->default_value(false), "compute resolution bias")
 	  ("fitNorm",            bool_switch()->default_value(false), "compute difference in normalisation in 4D bin")
 	  ("usePrevMassFit",     bool_switch()->default_value(false), "use previous mass fit")
@@ -98,6 +98,8 @@ int main(int argc, char* argv[]) {
 	  ("useKf",              bool_switch()->default_value(false), "use track input from Kalman Filter instead of CVH")
 	  ("useCB",              bool_switch()->default_value(false), "under development")
 	  ("scaleToData",        bool_switch()->default_value(false), "scale MC to data in 4D bin");
+	  //TODO implement paths to data/ms files
+	  //TODO find ways to compute mc and data lumi 
 
     store(parse_command_line(argc, argv, desc), vm);
     notify(vm);
@@ -267,6 +269,7 @@ int main(int argc, char* argv[]) {
 	    d_vals_fit(i) = h_d_vals_prevfit_in->GetBinContent(i+1);
       }
 	  // Save the content of h_ _vals_prevfit_in to be passed to resolfit.cpp without further changes
+	  //TODO why do AeM require a - and cd do not?
       h_c_vals_prevfit->Add(h_c_vals_prevfit_in, +1.0);
       h_d_vals_prevfit->Add(h_d_vals_prevfit_in, +1.0);
       ffit->Close();
@@ -293,18 +296,18 @@ int main(int argc, char* argv[]) {
   for(int iter=-1; iter<3; iter++) {
 
     if( !(iter>=firstIter && iter<=lastIter) ) continue;
-    cout << "Doing iter " << iter << endl;
+    cout << endl << "Doing iter " << iter << " [ -1: fills data histos, 0: fills MC histos, 1(needs 0): fills jacobians, 2(needs -1,0,1): fits for scale/resolution bias ]" << endl << endl;
 
     // Read the input files relevant to the current iteration
     vector<string> in_files = {};
     if(iter>=0) { // MC
         in_files = {
-	      "./inoutfiles/DYto2Mu_MLL-50to120_TuneCP5_13p6TeV_powheg-pythia8/CVH_refit_MC/*"
+	      "./inoutfiles/mc/*"
 	    };
     }
     else { // data
 		in_files = {
-		  "./inoutfiles/Muon/CVH_refit_Data_E/*"
+		  "./inoutfiles/mc/*"
 		};
     }
     
@@ -317,6 +320,7 @@ int main(int argc, char* argv[]) {
     if(iter>=0) { // MC
 
       // Define the indices of individual tracks passing selection criteria
+	  //TODO RVecF Muon_dxybs and RVecF Muon_pfRelIso04_all
       dlast = std::make_unique<RNode>(dlast->Define("idxs", [&](RVecB Muon_looseId, RVecB Muon_isGlobal, RVecB Muon_highPurity,
 	                                                            RVecB Muon_mediumId, RVecF Muon_pt, RVecF Muon_eta, RVecI Muon_trigger) -> RVecUI 
       {
@@ -355,6 +359,7 @@ int main(int argc, char* argv[]) {
 	    ROOT::Math::PtEtaPhiMVector muP( Muon_pt[ idxP ], Muon_eta[ idxP ], Muon_phi[ idxP ], muon_mass );
 	    ROOT::Math::PtEtaPhiMVector muM( Muon_pt[ idxM ], Muon_eta[ idxM ], Muon_phi[ idxM ], muon_mass );
 	    // gen matching
+		// TODO cvh does it already
 	    ROOT::Math::PtEtaPhiMVector gmuP( 0., 0., 0., 0. );
 	    ROOT::Math::PtEtaPhiMVector gmuM( 0., 0., 0., 0. );
 	    for(unsigned int i = 0; i < GenPart_pt.size() ; i++) {
@@ -486,6 +491,7 @@ int main(int argc, char* argv[]) {
 	    ROOT::Math::PtEtaPhiMVector muP( Muon_pt[ idxP ], Muon_eta[ idxP ], Muon_phi[ idxP ], muon_mass );
 	    ROOT::Math::PtEtaPhiMVector muM( Muon_pt[ idxM ], Muon_eta[ idxM ], Muon_phi[ idxM ], muon_mass );
 	    // gen matching
+		//TODO cvh does gen matchiung also why do we repeat all this code?
 		ROOT::Math::PtEtaPhiMVector gmuP( 0., 0., 0., 0. );
 	    ROOT::Math::PtEtaPhiMVector gmuM( 0., 0., 0., 0. );
 	    for(unsigned int i = 0; i < GenPart_pt.size(); i++) {

@@ -1,7 +1,8 @@
 Bool_t rescorr=false;
 
+// pT range relevant for mass fits 
 Double_t innercut=20.;
-Double_t outercut=100.;
+Double_t outercut=60.;
 
 Double_t scalemodel(Double_t *x, Double_t *par)
 {
@@ -27,21 +28,21 @@ Double_t resmodel(Double_t *x, Double_t *par)
       TF1::RejectPoint();
       return -999.;
    }
-   return sqrt(par[0]*par[0]+par[1]*par[1]*x[0]*x[0]);
+   return sqrt(par[0]*par[0]+par[1]*par[1]*x[0]*x[0]); // par[0] = a, par[1] = c, x is pT
 }
 
 void resolutionfitter() {
-	TFile* file=new TFile("resolution.root");
+	TFile* file=new TFile("globalcor_0_one_mc_file_F_reshaped_hist.root");
 	TH3D* histo=(TH3D*)file->Get("histo");
-	TFile* output=new TFile("output.root","RECREATE");
+	TFile* output=new TFile("globalcor_0_one_mc_file_F_reshaped_coefficients.root","RECREATE");
 	output->cd();
-	TH1D* scalea = new TH1D("scalea","",48,-2.4,2.4);
-	TH1D* scalem = new TH1D("scalem","",48,-2.4,2.4);
-	TH1D* scaleeps = new TH1D("scaleeps","",48,-2.4,2.4);
-	TH1D* resa = new TH1D("resa","",48,-2.4,2.4);
-	TH1D* resb = new TH1D("resb","",48,-2.4,2.4);
-	TH1D* resc = new TH1D("resc","",48,-2.4,2.4);
-	TH1D* resd = new TH1D("resd","",48,-2.4,2.4);
+	TH1D* scalea = new TH1D("scalea","",24,-2.4,2.4);
+	TH1D* scalem = new TH1D("scalem","",24,-2.4,2.4);
+	TH1D* scaleeps = new TH1D("scaleeps","",24,-2.4,2.4);
+	TH1D* resa = new TH1D("resa","",24,-2.4,2.4);
+	TH1D* resb = new TH1D("resb","",24,-2.4,2.4);
+	TH1D* resc = new TH1D("resc","",24,-2.4,2.4);
+	TH1D* resd = new TH1D("resd","",24,-2.4,2.4);
 	for (unsigned int i=0; i!=histo->GetZaxis()->GetNbins(); i++) {
 		histo->GetZaxis()->SetRange(i+1,i+1);
 		float mineta=histo->GetZaxis()->GetBinLowEdge(i+1), maxeta=histo->GetZaxis()->GetBinUpEdge(i+1);
@@ -63,12 +64,12 @@ void resolutionfitter() {
 			for (unsigned int h=maxbin; h!=histo1->GetXaxis()->GetNbins(); h++) {
 				if (histo1->GetBinContent(h+1)>0.5*histo1->GetBinContent(maxbin)) hwhm=histo1->GetBinCenter(h+1)-histo1->GetBinCenter(maxbin);
 			}
-			float kfit=2, kfit2=2.5;
+			float kfit=4, kfit2=4.5; // range for resolution fits
 			auto fa1 = new TF1("fa1",model.c_str(),histo1->GetBinCenter(maxbin)-kfit*hwhm,histo1->GetBinCenter(maxbin)+kfit*hwhm);
 			fa1->SetParameter(0,histo1->GetBinContent(maxbin));
 			fa1->SetParameter(1,histo1->GetBinCenter(maxbin));
 			fa1->SetParameter(2,hwhm);
-			fa1->SetParameter(3,1);
+			fa1->SetParameter(3,3); // exponential tails
 			fa1->SetParameter(4,0);
 			auto r1 = histo1->Fit(fa1, "LS", "", histo1->GetBinCenter(maxbin)-kfit*hwhm,histo1->GetBinCenter(maxbin)+kfit*hwhm);
 			auto fa2 = new TF1("fa2",model.c_str(),histo1->GetBinCenter(maxbin)-kfit2*abs(r1->Parameter(2)),histo1->GetBinCenter(maxbin)+kfit2*abs(r1->Parameter(2)));
@@ -78,9 +79,9 @@ void resolutionfitter() {
 			fa2->SetParameter(3,r1->Parameter(3));
 			fa2->SetParameter(4,r1->Parameter(4));
 			auto r2 = histo1->Fit(fa2, "LS", "", histo1->GetBinCenter(maxbin)-kfit2*abs(r1->Parameter(2)),histo1->GetBinCenter(maxbin)+kfit2*abs(r1->Parameter(2)));
-			histo1->Write();
 			Int_t fitStatus = r2;
 			if ((fitStatus==0)&&(r2->ParError(1)<0.1)&&(abs(r2->Parameter(1)-histo1->GetBinCenter(maxbin))<0.05)) {
+				histo1->Write();
 				Histo->SetBinContent(j+1,r2->Parameter(1));
 				Histo->SetBinError(j+1,r2->ParError(1));
 				Histores->SetBinContent(j+1,abs(r2->Parameter(2)));

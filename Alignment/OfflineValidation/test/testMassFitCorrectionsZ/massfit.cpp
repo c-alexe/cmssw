@@ -1,5 +1,6 @@
 // It can be ran in data mode ->  takes the mass scale biases per 4D bin and fits for the pT scale biases parameters A,e,M per eta bin 
 // OR toys mode (closure test) -> generates mass scale biases from dummy AeM biases and fits for AeM from them
+// NOTE: the data mode can be used as a separate closure test if the output of massscales.cpp is used 
 // Authors: Cristina Alexe, Lorenzo Bianchini
 
 #include <ROOT/RDataFrame.hxx>
@@ -51,6 +52,7 @@ class TheoryFcn : public FCNGradientBase {
 public:
   TheoryFcn(const int& debug, const int& seed, const int& bias, string fname)
     : errorDef_(1.0), debug_(debug), seed_(seed), bias_(bias)
+    // bias_ [-1 for data, >0 for toys: 1 for uniform random bias, 2 for eta dependent bias] 
   {
 
     ran_ = new TRandom3(seed_);
@@ -110,7 +112,7 @@ public:
     }
 
     // Toys mode: input pT scale biases A,e,M
-    x_vals_ = VectorXd(n_pars_); // Holds all input A,e,M biases in a single vector in this order
+    x_vals_ = VectorXd(n_pars_); // Holds all input pT scale biases A,e,M in a single vector in this order
     A_vals_ = VectorXd(n_eta_bins_);
     e_vals_ = VectorXd(n_eta_bins_);
     M_vals_ = VectorXd(n_eta_bins_);
@@ -130,8 +132,8 @@ public:
       x_vals_(i) = 0.0;
     }
 
-    if(bias_>0) { // Toys mode only 
-      // bias for A out
+    if(bias_>0) { // Toys mode
+      // input pT scale bias A 
       for(unsigned int i=0; i<n_eta_bins_; i++) {
 	      double val = ran_->Uniform(-0.001, 0.001);
 	      if (bias_== 2) {
@@ -141,7 +143,7 @@ public:
 	      A_vals_(i) = val;
 	      x_vals_(i) = val;
       }
-      // bias for e out
+      // input pT scale bias e
       for(unsigned int i=0; i<n_eta_bins_; i++) {
 	      double val = ran_->Uniform(-0.0001/kmean_val_, 0.0001/kmean_val_);
 	      if (bias_== 2) {
@@ -151,7 +153,7 @@ public:
 	      e_vals_(i) = val;
 	      x_vals_(i+n_eta_bins_) = val;
       }
-      // bias for M out
+      // input pT scale bias M 
       for(unsigned int i=0; i<n_eta_bins_; i++) {
 	      double val = ran_->Uniform(-0.001*kmean_val_, 0.001*kmean_val_);
 	      if (bias_== 2) {
@@ -185,7 +187,7 @@ public:
       n_dof_ = n_unmasked_bins - n_pars_;
       n_data_ = n_unmasked_bins;
 	
-      // AeM values used to generate toy in massscales.cpp OR 0 in massscales_data.cpp
+      // Read from massscales.cpp the input curvature scale bias parameters AeM used to generate the toy, corrected for prevfit (OR 0 in massscales_data.cpp)
       TH1D* h_A_vals = (TH1D*)fin->Get("h_A_vals_nom");
       TH1D* h_e_vals = (TH1D*)fin->Get("h_e_vals_nom");
       TH1D* h_M_vals = (TH1D*)fin->Get("h_M_vals_nom");
@@ -199,17 +201,17 @@ public:
       assert( h_M_vals->GetXaxis()->GetNbins() == n_eta_bins_ );
 	
       for(unsigned int i=0; i<n_eta_bins_; i++) {
-	      A_vals_(i) = -h_A_vals->GetBinContent(i+1);
+	      A_vals_(i) = -h_A_vals->GetBinContent(i+1); // We will use pT scale biases, which are (-1) * (curvature scale biases)
 	      A_vals_prevfit_(i) = h_A_vals_prevfit->GetBinContent(i+1);
 	      x_vals_(i) = A_vals_(i);
       }
       for(unsigned int i=0; i<n_eta_bins_; i++) {
-	      e_vals_(i) = -h_e_vals->GetBinContent(i+1);
+	      e_vals_(i) = -h_e_vals->GetBinContent(i+1); // We will use pT scale biases, which are (-1) * (curvature scale biases)
 	      e_vals_prevfit_(i) = h_e_vals_prevfit->GetBinContent(i+1);
 	      x_vals_(i+n_eta_bins_) = e_vals_(i);
       }
       for(unsigned int i=0; i<n_eta_bins_; i++) {
-	      M_vals_(i) = -h_M_vals->GetBinContent(i+1);
+	      M_vals_(i) = -h_M_vals->GetBinContent(i+1); // We will use pT scale biases, which are (-1) * (curvature scale biases)
 	      M_vals_prevfit_(i) = h_M_vals_prevfit->GetBinContent(i+1);
 	      x_vals_(i+2*n_eta_bins_) = M_vals_(i);
       }
@@ -247,7 +249,7 @@ public:
   // Function to set the seed value for random numbers
   void set_seed(const int& seed){ ran_->SetSeed(seed);}
 
-  // Function to get external or internal true parameter values from index (for toys)
+  // (For toys) Function to get external or internal true parameter values (meaning the input pT scale bias A,e,M) from index	
   double get_true_params(const unsigned int& i, const bool& external) {
     if(external)
       return x_vals_(i);
@@ -335,11 +337,10 @@ void TheoryFcn::generate_data() {
 	        while(ierr2<=0.) 
 	          ierr2 = ran_->Gaus(ierr2_nom,  ierr2_nom*0.1);
 	        
-          // Draw scale^2 centered around iscale2_bias with width ierr2
-          // Note: the model is correct as we read - _nom histos  
+          // Draw scale^2 centered around iscale2_bias with width ierr2 
 	        double iscale2_bias =
-	          (1.0 + A_vals_(ieta_p) + e_vals_(ieta_p)*k_p - M_vals_(ieta_p)/k_p)*
-	          (1.0 + A_vals_(ieta_m) + e_vals_(ieta_m)*k_m + M_vals_(ieta_m)/k_m);
+	          (1.0 + A_vals_(ieta_p) - e_vals_(ieta_p)*k_p + M_vals_(ieta_p)/k_p)*
+	          (1.0 + A_vals_(ieta_m) - e_vals_(ieta_m)*k_m - M_vals_(ieta_m)/k_m);
 	        double iscale2 = ran_->Gaus(iscale2_bias, ierr2);
 
 	        //if(ibin<3) cout << iscale2 << endl;
@@ -358,6 +359,7 @@ void TheoryFcn::generate_data() {
 }
 
 // Define function to be minimised from mass scale bias ^2 values and errors and pT scale biases parameters AeM -> will obtain AeM
+// TODO spell out equations in a comment
 double TheoryFcn::operator()(const vector<double>& par) const {
 
   double val = 0.0;
@@ -639,8 +641,10 @@ int main(int argc, char* argv[]) {
     for (int i=0; i<n_parameters/3; i++) upar.Add(Form("e%d",i), start, par_error);
     for (int i=0; i<n_parameters/3; i++) upar.Add(Form("M%d",i), start, par_error);      
 
+    MnStrategy strat(1);
+
     // Minimize
-    MnMigrad migrad(*fFCN, upar, 1);    
+    MnMigrad migrad(*fFCN, upar, strat);    
     if(itoy<1) cout << "\tMigrad..." << endl;
     FunctionMinimum min = migrad(maxfcn, tolerance);
 
@@ -741,28 +745,28 @@ int main(int argc, char* argv[]) {
         if(i<n_parameters/3) {
 	        h_A_vals_fit->SetBinContent(ip+1, x(i));
 	        h_A_vals_fit->SetBinError(ip+1, xErr(i));
-	        h_A_vals_nom->SetBinContent(ip+1, fFCN->get_true_params(i, true)); // toys
+	        h_A_vals_nom->SetBinContent(ip+1, fFCN->get_true_params(i, true)); // Toys: input pT scale bias parameter, external (bias<0 -> also corrected for prevfit); Data: 0	
 	        h_Ain_vals_fit->SetBinContent(ip+1, xin(i));
 	        h_Ain_vals_fit->SetBinError(ip+1, xinErr(i));
-	        h_Ain_vals_nom->SetBinContent(ip+1, fFCN->get_true_params(i, false)); // toys
+	        h_Ain_vals_nom->SetBinContent(ip+1, fFCN->get_true_params(i, false)); // Toys: input pT scale bias parameter, internal (bias<0 -> also corrected for prevfit); Data: 0
 	        h_A_vals_prevfit->SetBinContent(ip+1, fFCN->get_A_prevfit(ip) + x(i));
         }
         else if(i>=n_parameters/3 && i<2*n_parameters/3) {
 	        h_e_vals_fit->SetBinContent(ip+1, x(i));
 	        h_e_vals_fit->SetBinError(ip+1, xErr(i));
-	        h_e_vals_nom->SetBinContent(ip+1, fFCN->get_true_params(i, true)); // toys
+	        h_e_vals_nom->SetBinContent(ip+1, fFCN->get_true_params(i, true)); // Toys: input pT scale bias parameter, external (bias<0 -> also corrected for prevfit); Data: 0
 	        h_ein_vals_fit->SetBinContent(ip+1, xin(i));
 	        h_ein_vals_fit->SetBinError(ip+1, xinErr(i));
-	        h_ein_vals_nom->SetBinContent(ip+1, fFCN->get_true_params(i, false)); // toys
+	        h_ein_vals_nom->SetBinContent(ip+1, fFCN->get_true_params(i, false)); // Toys: input pT scale bias parameter, internal (bias<0 -> also corrected for prevfit); Data: 0
 	        h_e_vals_prevfit->SetBinContent(ip+1, fFCN->get_e_prevfit(ip) + x(i));
         }
         else {
 	        h_M_vals_fit->SetBinContent(ip+1, x(i));
 	        h_M_vals_fit->SetBinError(ip+1, xErr(i));
-	        h_M_vals_nom->SetBinContent(ip+1, fFCN->get_true_params(i, true)); // toys
+	        h_M_vals_nom->SetBinContent(ip+1, fFCN->get_true_params(i, true)); // Toys: input pT scale bias parameter, external (bias<0 -> also corrected for prevfit); Data: 0
 	        h_Min_vals_fit->SetBinContent(ip+1, xin(i));
       	  h_Min_vals_fit->SetBinError(ip+1, xinErr(i));
-	        h_Min_vals_nom->SetBinContent(ip+1, fFCN->get_true_params(i, false)); // toys
+	        h_Min_vals_nom->SetBinContent(ip+1, fFCN->get_true_params(i, false)); // Toys: input pT scale bias parameter, internal (bias<0 -> also corrected for prevfit); Data: 0
 	        h_M_vals_prevfit->SetBinContent(ip+1, fFCN->get_M_prevfit(ip) + x(i));
         }  
       } 

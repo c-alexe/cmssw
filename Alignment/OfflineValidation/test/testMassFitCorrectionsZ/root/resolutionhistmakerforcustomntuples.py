@@ -94,9 +94,11 @@ for name in files: filenames.push_back(name)
 
 d = ROOT.RDataFrame("tree", filenames)
 
+# Gen matching already done by the CVH plugin with doGen = True 
 d = d.Define("resolution", "-(UpdPt-genPt)/UpdPt")
 d = d.Redefine("genPt", "genPt*genCharge")
-binning_eta = array('d',[round(-2.4 + i*0.1,2) for i in range(49)])
+# Match the binning in massscales_data.cpp
+binning_eta = array('d',[round(-2.4 + i*0.2,2) for i in range(25)])
 binning_pt = array('d',[round(-100. + i*1.,2) for i in range(201)])
 binning_reso = array('d',[-0.5+i*0.0005 for i in range(2001)])
 

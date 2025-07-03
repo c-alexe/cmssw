@@ -29,7 +29,7 @@ def loop_one():
         ' --tag='+tag+' '+\
         ' --run=Iter0 '+\
         ' --nRMSforGausFit=-1 '+\
-        ' --minNumEvents=100 --minNumEventsPerBin=30 '+\
+        ' --minNumEvents=10 --minNumEventsPerBin=3 '+\
         ' --minNumMassBins=4 '+\
         ' --rebin=2 '+\
         ' --fitNorm --fitWidth '+\
@@ -39,6 +39,7 @@ def loop_one():
         print(cmd_histo_iter0)
     if not (args.dryrun or args.forceIter>0):
         os.system(cmd_histo_iter0)
+        print("\n")
     cmd_fit_iter0 = './massfit --ntoys=1 --bias=-1 '+\
         '--tag='+tag+' '+\
         '--run=Iter0 '
@@ -46,6 +47,7 @@ def loop_one():
         print(cmd_fit_iter0)
     if not (args.dryrun or args.forceIter>0):
         os.system(cmd_fit_iter0)
+        print("\n")
     cmd_resol_iter0 = './resolfit --ntoys=1 --bias=-1 '+\
         ' --tag='+tag+' '+\
         ' --run=Iter0 '+\
@@ -54,6 +56,7 @@ def loop_one():
         print(cmd_resol_iter0)
     if not (args.dryrun or args.forceIter>0):
         os.system(cmd_resol_iter0)
+        print("\n")
 
     for iter in range(1, args.niter+1):
         if (args.forceIter>0 and iter!=args.forceIter) or args.forceIter==0 :
@@ -68,14 +71,17 @@ def loop_one():
         print(cmd_histo_iteri)
         if not args.dryrun:
             os.system(cmd_histo_iteri)
+            print("\n")
         cmd_fit_iteri = cmd_fit_iter0.replace('--run=Iter0', '--run=Iter'+str(iter))
         print(cmd_fit_iteri)
         if not args.dryrun:
             os.system(cmd_fit_iteri)
+            print("\n")
         cmd_resol_iteri = cmd_resol_iter0.replace('--run=Iter0', '--run=Iter'+str(iter))
         print(cmd_resol_iteri)
         if not args.dryrun:
             os.system(cmd_resol_iteri)
+            print("\n")
     return
 
 
