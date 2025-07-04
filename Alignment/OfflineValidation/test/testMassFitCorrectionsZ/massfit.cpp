@@ -187,7 +187,7 @@ public:
       n_dof_ = n_unmasked_bins - n_pars_;
       n_data_ = n_unmasked_bins;
 	
-      // Read from massscales.cpp the input curvature scale bias parameters AeM used to generate the toy, corrected for prevfit (OR 0 in massscales_data.cpp)
+      // Read the curvature TODO curvature? scale bias parameters AeM used to generate the toy from massscales_data.cpp in TOYS MODE, corrected for prevfit (OR 0 in massscales not TOY MODE)
       TH1D* h_A_vals = (TH1D*)fin->Get("h_A_vals_nom");
       TH1D* h_e_vals = (TH1D*)fin->Get("h_e_vals_nom");
       TH1D* h_M_vals = (TH1D*)fin->Get("h_M_vals_nom");
