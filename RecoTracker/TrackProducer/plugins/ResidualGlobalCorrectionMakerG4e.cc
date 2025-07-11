@@ -29,10 +29,6 @@ private:
   virtual void produce(edm::Event &, const edm::EventSetup &) override;
 
   edm::EDGetTokenT<edm::Association<reco::TrackExtraCollection>> inputAssoc_;
-
-  float genweight_copy;
-  unsigned long long event_copy;
-
   
   bool trackHighPurity = false;
 
@@ -156,8 +152,8 @@ void ResidualGlobalCorrectionMakerG4e::beginStream(edm::StreamID streamid)
     tree->Branch("nValidPixelHitsFinal", &nValidPixelHitsFinal);
 
     if (doGen_) {
-      preCutsTree->Branch("event", &event_copy);
-      preCutsTree->Branch("genweight", &genweight_copy);
+      preCutsTree->Branch("event", &event);
+      preCutsTree->Branch("genweight", &genweight);
     }
 
     if (fillJac_) {
@@ -365,10 +361,6 @@ void ResidualGlobalCorrectionMakerG4e::produce(edm::Event &iEvent, const edm::Ev
   genweight = 1.;
   if (doGen_) {
     genweight = genEventInfo->weight();
-
-    event_copy = event;
-    genweight_copy = genweight;
-
     Pileup_nPU = pileupSummary->front().getPU_NumInteractions();
     Pileup_nTrueInt = pileupSummary->front().getTrueNumInteractions();
   }
