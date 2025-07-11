@@ -29,6 +29,10 @@ private:
   virtual void produce(edm::Event &, const edm::EventSetup &) override;
 
   edm::EDGetTokenT<edm::Association<reco::TrackExtraCollection>> inputAssoc_;
+
+  float genweight_copy;
+  unsigned long long event_copy;
+
   
   bool trackHighPurity = false;
 
@@ -151,6 +155,11 @@ void ResidualGlobalCorrectionMakerG4e::beginStream(edm::StreamID streamid)
     tree->Branch("nValidHitsFinal", &nValidHitsFinal);
     tree->Branch("nValidPixelHitsFinal", &nValidPixelHitsFinal);
 
+    if (doGen_) {
+      preCutsTree->Branch("event", &event_copy);
+      preCutsTree->Branch("genweight", &genweight_copy);
+    }
+
     if (fillJac_) {
       tree->Branch("nJacRef", &nJacRef, basketSize);
       tree->Branch("jacrefv",jacrefv.data(),"jacrefv[nJacRef]/F", basketSize);
@@ -177,6 +186,7 @@ void ResidualGlobalCorrectionMakerG4e::beginStream(edm::StreamID streamid)
     tree->Branch("trackExtraAssoc", &trackExtraAssoc);
     
     if (fitFromGenParms_) {
+
       tree->Branch("hitidxv", &hitidxv);
       tree->Branch("dxrecgen", &dxrecgen);
       tree->Branch("dyrecgen", &dyrecgen);
@@ -351,10 +361,13 @@ void ResidualGlobalCorrectionMakerG4e::produce(edm::Event &iEvent, const edm::Ev
   run = iEvent.run();
   lumi = iEvent.luminosityBlock();
   event = iEvent.id().event();
-
+  
   genweight = 1.;
   if (doGen_) {
     genweight = genEventInfo->weight();
+
+    event_copy = event;
+    genweight_copy = genweight;
 
     Pileup_nPU = pileupSummary->front().getPU_NumInteractions();
     Pileup_nTrueInt = pileupSummary->front().getTrueNumInteractions();
@@ -1169,7 +1182,7 @@ void ResidualGlobalCorrectionMakerG4e::produce(edm::Event &iEvent, const edm::Ev
       
       
       for (unsigned int ihit = 0; ihit < hits.size(); ++ihit) {
-//         std::cout << "iiter = " << iiter << " ihit " << ihit << std::endl;
+        // std::cout << "iiter = " << iiter << " ihit " << ihit << std::endl;
 
         auto const& hit = hits[ihit];
         
@@ -2378,6 +2391,10 @@ void ResidualGlobalCorrectionMakerG4e::produce(edm::Event &iEvent, const edm::Ev
       tree->Fill();
     }
 
+  }
+  
+  if (fillTrackTree_ && doGen_) {
+    preCutsTree->Fill();
   }
 
   edm::ValueMap<float> corPtMap;

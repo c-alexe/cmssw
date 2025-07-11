@@ -201,6 +201,7 @@ void ResidualGlobalCorrectionMakerBase::beginStream(edm::StreamID streamid)
   
   if (fillTrackTree_) {
     tree = new TTree("tree","");
+    if (doGen_) preCutsTree = new TTree("preCutsTree","");
     const int basketSize = 4*1024*1024;
     tree->SetAutoFlush(0);
     

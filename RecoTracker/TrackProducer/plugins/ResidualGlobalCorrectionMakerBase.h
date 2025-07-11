@@ -250,6 +250,7 @@ protected:
   
   TFile *fout = nullptr;
   TTree *tree = nullptr;
+  TTree *preCutsTree = nullptr;
 
   float trackEta;
   float trackPhi;
