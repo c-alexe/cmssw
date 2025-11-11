@@ -30,6 +30,8 @@ def loop_one(seed, toy_number):
     cmd_histo_iter0 = './massscales_data --firstIter=-1 --lastIter=2 '+\
         ' --tag='+tag+' '+\
         ' --run=Iter0 '+\
+        ' --pathToDataFiles=./inoutfiles/mc/*' +\
+        ' --pathToMCFiles=./inoutfiles/mc/*' +\
         ' --nRMSforGausFit=-1 '+\
         ' --minNumEvents=10 --minNumEventsPerBin=3 '+\
         ' --minNumMassBins=4 '+\
