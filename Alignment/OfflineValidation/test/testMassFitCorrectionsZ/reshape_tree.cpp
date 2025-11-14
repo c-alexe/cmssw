@@ -35,10 +35,18 @@ int main() {
     auto start = std::chrono::high_resolution_clock::now();
 
     // Read input and output directory names
-    const std::string input_directory = "/afs/cern.ch/user/c/calexe/CMSSW_14_0_18/src/RecoTracker/TrackProducer/test/globalcor/";
-    // "/gpfs/ddn/srm/cms/store/user/calexe/DYto2Mu_MLL-50to120_keepMDSHits_TuneCP5_13p6TeV_powheg-pythia8/CVH_refit_MC/250507_094615/";
-    const std::string output_directory = "/afs/cern.ch/user/c/calexe/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/";
-    // "/home/users/alexe/workingarea/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/DYto2Mu_MLL-50to120_keepMDSHits_TuneCP5_13p6TeV_powheg-pythia8_with_CVH/";
+    std::string input_directory = "/afs/cern.ch/user/c/calexe/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/data/";
+    std::string output_directory = "/afs/cern.ch/user/c/calexe/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/data_reshaped/";
+    // Check that the output directory is not the same or a subdirectory of the input directory 
+    try {
+        if (input_directory[input_directory.length() - 1]!='/') input_directory.insert(input_directory.end(),'/');
+        if (output_directory[output_directory.length() - 1]!='/') output_directory.insert(output_directory.end(),'/');
+        if (output_directory.find(input_directory) != std::string::npos) throw 505;
+    } 
+    catch (int errorCode) {
+        std::cout<<"Output directory can't be the same or a subdirectory of the input directory"<<std::endl;
+        return 0;
+    }
     const fs::path output_dir_path{output_directory};
 
     // Create output directory if needed
@@ -178,8 +186,10 @@ int main() {
             // Write and close files
             tree_out->Write();
             f_out->Write();
+            std::cout<<"f_out->Write();";
             f_in->Close();
-        break; // do only 1 file for debugging
+            std::cout<<"f_in->Close();";
+        //break; // do only 1 file for debugging
         }
     }
     auto end = std::chrono::high_resolution_clock::now();
