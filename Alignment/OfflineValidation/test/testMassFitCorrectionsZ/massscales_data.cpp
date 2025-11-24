@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
 	  ("tag",                value<std::string>()->default_value("closure"), "run type, type of data used")
 	  ("run",                value<std::string>()->default_value("closure"), "number of iteration")
 	  ("saveMassFitHistos",  bool_switch()->default_value(false), "save pre and postfit mass distribution in 4D bin")
-	  ("skipUnsmearedReco",  bool_switch()->default_value(true), "do not fill histograms of mass or jacobian weights per event for reco without smearing")
+	  ("saveUnsmearedReco",  bool_switch()->default_value(false), "fill histograms of mass or jacobian weights per event for reco without smearing (but they won't be used in the fit)")
 	  ("firstIter",          value<int>()->default_value(-1), "firstIter (-1: fills data histos, 0: fills MC histos, 1(needs 0): fills jacobians, 2(needs -1,0,1): fits for scale/resolution bias)")
 	  ("lastIter",           value<int>()->default_value(-1), "lastIter  (-1: fills data histos, 0: fills MC histos, 1(needs 0): fills jacobians, 2(needs -1,0,1): fits for scale/resolution bias)")
 	  ("nRMSforGausFit",     value<float>()->default_value(-1.), "number of RMS for Gaus mass difference fit")
@@ -103,10 +103,11 @@ int main(int argc, char* argv[]) {
 	  ("useCB",              bool_switch()->default_value(false), "under development")
 	  ("scaleToData",        bool_switch()->default_value(false), "scale MC to data in 4D bin")
 	  // TOYS MODE
-	  ("toysMode",           bool_switch()->default_value(false), "TOYS MODE: generate pseudodata from MC TODO more detail")
-	  ("biasResolutionRange", value<float>()->default_value(-1.), "TOYS MODE: input resolution bias randomly sampled from -biasResolutionRange to biasResolutionRange")
-	  ("useMCasData",        bool_switch()->default_value(false), "TOYS MODE: use reco as MC and biased smeared reco as pseudodata")
-	  ("seed",               value<int>()->default_value(4357), "TOYS MODE: seed for random numbers");
+	  ("toysMode",              bool_switch()->default_value(false), "TOYS MODE: generate pseudodata from MC TODO more detail")
+	  ("nominalResolutionFile", value<std::string>()->default_value("./inoutfiles/NominalResolution/globalcor_0_tag_coefficients.root"), "TOYS MODE: nominal resolution file")
+	  ("biasResolutionRange",   value<float>()->default_value(-1.), "TOYS MODE: input resolution curvature bias randomly sampled from -biasResolutionRange to biasResolutionRange")
+	  ("useMCasData",           bool_switch()->default_value(false), "TOYS MODE: use reco as MC and biased smeared reco as pseudodata")
+	  ("seed",                  value<int>()->default_value(4357), "TOYS MODE: seed for random numbers");
 
     store(parse_command_line(argc, argv, desc), vm);
     notify(vm);
@@ -135,7 +136,7 @@ int main(int argc, char* argv[]) {
   int firstIter               = vm["firstIter"].as<int>();
   int lastIter                = vm["lastIter"].as<int>();
   bool saveMassFitHistos      = vm["saveMassFitHistos"].as<bool>();
-  bool skipUnsmearedReco      = vm["skipUnsmearedReco"].as<bool>();
+  bool saveUnsmearedReco      = vm["saveUnsmearedReco"].as<bool>();
   bool fitWidth               = vm["fitWidth"].as<bool>();
   bool fitNorm                = vm["fitNorm"].as<bool>();
   bool usePrevMassFit         = vm["usePrevMassFit"].as<bool>();
@@ -148,23 +149,31 @@ int main(int argc, char* argv[]) {
   std::string runPrevResolFit = vm["runPrevResolFit"].as<std::string>();
   bool scaleToData            = vm["scaleToData"].as<bool>();
   float maxRMS                = vm["maxRMS"].as<float>();
-  bool toysMode               = vm["toysMode"].as<bool>();
-  float biasResolutionRange   = vm["biasResolutionRange"].as<float>();
-  bool useMCasData            = vm["useMCasData"].as<bool>();
-  int seed                    = vm["seed"].as<int>();
+  bool toysMode                     = vm["toysMode"].as<bool>();
+  std::string nominalResolutionFile = vm["nominalResolutionFile"].as<std::string>();
+  float biasResolutionRange         = vm["biasResolutionRange"].as<float>();
+  bool useMCasData                  = vm["useMCasData"].as<bool>();
+  int seed                          = vm["seed"].as<int>();
 
   TRandom3* ran0 = new TRandom3(seed);
-  // TOYS MODE: Sample random bias in resolution
+  // TOYS MODE: Sample random bias in curvature resolution
   float biasResolution = ( biasResolutionRange < 0. ) ? 0.0 : ran0->Uniform(-biasResolutionRange,+biasResolutionRange);
-  // cout << "Bias in resolution: " << biasResolution << endl;
 
-  assert( firstIter>=-1 && lastIter<=2 && firstIter<=lastIter );
+  try { 
+	if ((firstIter>=-1 && lastIter<=2 && firstIter<=lastIter) == false) throw 501;
+	if (saveUnsmearedReco && toysMode)  throw 502;
+  }
+  catch (int errorCode) {
+	if (errorCode == 501) std::cout<<"Ensure the logical order of iterations"<<std::endl;
+	if (errorCode == 502) std::cout<<"saveUnsmearedReco can't be true in toys mode, use data mode instead"<<std::endl;
+	return 0;
+  } 
 
-  vector<float> pt_edges  = {25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0}; 
-  //vector<float> pt_edges  = {25.0, 35.0, 45.0, 55.0}; 
-  //vector<float> eta_edges = {-2.4, -2.0, -1.6, -1.2, -0.8, -0.4, 0.0, 0.4, 0.8, 1.2, 1.6, 2.0, 2.4};
-  vector<float> eta_edges = {-2.4, -2.2, -2.0, -1.8, -1.6, -1.4, -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0,
-                             0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4};
+  //vector<float> pt_edges  = {25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0}; 
+  vector<float> pt_edges  = {25.0, 40.0, 55.0}; 
+  vector<float> eta_edges = {-2.4, -1.2, 0.0, 1.2, 2.4};
+  //vector<float> eta_edges = {-2.4, -2.2, -2.0, -1.8, -1.6, -1.4, -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0,
+  //                           0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4};
 
   TH1F* h_pt_edges  = new TH1F("h_pt_edges", "",  pt_edges.size()-1, pt_edges.data());
   TH1F* h_eta_edges = new TH1F("h_eta_edges", "", eta_edges.size()-1, eta_edges.data());
@@ -186,7 +195,7 @@ int main(int argc, char* argv[]) {
   const double dm_low  = -6.0;
   const double dm_high = 6.0;
 
-  // _nom histograms in TOYS MODE: with the input curvature (not pT!) scale bias parameters A, e or M for the current toy
+  // _nom histograms in TOYS MODE: with the input curvature (not pT) scale bias parameters A, e or M for the current toy
   //                 OR DATA MODE: _nom histograms with AeM set to 0 (needed for massfit.cpp to run for both data and toys) 
   TH1F* h_A_vals_nom = new TH1F("h_A_vals_nom", "", n_eta_bins, 0, n_eta_bins );
   TH1F* h_e_vals_nom = new TH1F("h_e_vals_nom", "", n_eta_bins, 0, n_eta_bins );
@@ -199,12 +208,12 @@ int main(int argc, char* argv[]) {
   TH1F* h_c_vals_prevfit = new TH1F("h_c_vals_prevfit", "", n_eta_bins, 0, n_eta_bins );
   TH1F* h_d_vals_prevfit = new TH1F("h_d_vals_prevfit", "", n_eta_bins, 0, n_eta_bins );
 
-  // TOYS MODE: Use input curvature biases (as opposed to pT biases) 		
+  // TOYS MODE: Use input curvature biases (not pT biases) 		
   VectorXd A_vals_nom( n_eta_bins ); 
   VectorXd e_vals_nom( n_eta_bins );		
   VectorXd M_vals_nom( n_eta_bins );
   
-  // Use curvature biases (as opposed to pT biases)
+  // Use curvature biases (not pT biases)
   VectorXd A_vals_fit( n_eta_bins );
   VectorXd e_vals_fit( n_eta_bins );
   VectorXd M_vals_fit( n_eta_bins );
@@ -212,7 +221,7 @@ int main(int argc, char* argv[]) {
   VectorXd d_vals_fit( n_eta_bins );
 
   for(unsigned int i=0; i<n_eta_bins; i++) {
-	// TOYS MODE: Fill histogram with input curvature (not pT!) scale bias parameters A,e,M
+	// TOYS MODE: Fill histogram with input curvature (not pT) scale bias parameters A,e,M
 	// (In DATA MODE they remain 0) 
     h_A_vals_nom->SetBinContent(i+1, 0.0); 
     h_e_vals_nom->SetBinContent(i+1, 0.0);
@@ -233,7 +242,7 @@ int main(int argc, char* argv[]) {
 	d_vals_fit(i) = 0.0;
   }           
 
-  // TOYS MODE: Generate random curvature (not pT!) scale bias parameters A,e,M
+  // TOYS MODE: Generate random curvature (not pT) scale bias parameters A,e,M
   if (toysMode) {
 	float y_max = h_eta_edges->GetXaxis()->GetXmax();
 	  for(unsigned int i=0; i<n_eta_bins; i++) {
@@ -259,10 +268,17 @@ int main(int argc, char* argv[]) {
   // TOYS MODE: Work out the resolution with which to smear MC gen curvature to get a pretend MC (without resolution bias) and pseudodata (with resolution bias)
   TH1D* histobudget = 0;
   TH1D* histohitres = 0;
-  TFile* faux_res = TFile::Open(("./root/globalcor_0_"+tag+"_reshaped_coefficients.root").c_str(), "READ"); //TODO this tag won't work for ntoys>0 in run_massloop_data and also i can t set the tag there so output files for data and toy are same
-  if(faux_res!=0) {
+  TFile* faux_res = toysMode ? TFile::Open(nominalResolutionFile.c_str(), "READ") : 0; 
+  if(toysMode && faux_res!=0) {
     histobudget = (TH1D*)faux_res->Get("resa");
     histohitres = (TH1D*)faux_res->Get("resc");
+	try { // TODO uncomment after tests
+		//if ((histobudget->GetNbinsX() == n_eta_bins &&  histobudget->GetXaxis()->GetBinLowEdge(1) - eta_edges[0] < 0.001  &&  histobudget->GetXaxis()->GetBinLowEdge(histobudget->GetNbinsX()+1) - eta_edges[n_eta_bins] < 0.001) == false) throw 503;
+	}
+	catch (int errorCode) {
+		if (errorCode == 503) std::cout<<"Eta binning of nominal resolution coefficients and masscales must match"<<std::endl;
+		return 0;
+	} 
   } else {
     cout << "No nominal resolution file found! Will quit" << endl;
     return 0;
@@ -279,9 +295,10 @@ int main(int argc, char* argv[]) {
       float hitres = histohitres->GetBinContent( eta_bin );
       float budget2 = budget*budget;
       float hitres2 = hitres*hitres;
-      // Nominal (pT resolution divided by pT)*k
+	  // Nominal pT resolution divided by pT = Nominal k resolution divided by k
+      // Nominal (pT resolution divided by pT)*k 
       out = TMath::Sqrt( budget2 + hitres2/k/k )*k;
-      // Resolution bias
+      // Resolution curvature bias
       out *= (1.0 + bias);
       return out;
     }
@@ -289,7 +306,7 @@ int main(int argc, char* argv[]) {
   };
   
   // Option to keep track of MC and jacobians before(reco) and after(smear0) applying curvature corrections to get closer to data
-  // If skipUnsmearedReco == false, we will save mass and jacobian histograms for both reco and smear0 in the dataframe
+  // If saveUnsmearedReco == true, we will save mass and jacobian histograms for both reco and smear0 in the dataframe
   // In the scale fit, only smear0 jacobians are used
   // TOYS MODE: smear1 is the pseudodata
   std::vector<string> recos = {"reco", "smear0", "smear1"}; //TODO check everywhere where recos size is called
@@ -297,7 +314,7 @@ int main(int argc, char* argv[]) {
   // Map to histograms containing information for each 4D bin
   std::map<string, TH1D*> h_map;
   for(unsigned int r = 0; r<recos.size(); r++) {
-	if(skipUnsmearedReco && recos[r]=="reco") continue;
+	if(!saveUnsmearedReco && recos[r]=="reco") continue;
 	if(!toysMode && recos[r]=="smear1") continue;
 	// Gaussian mean and rms of the mass - gen mass distribution in a 4D bin
     h_map.insert( std::make_pair<string, TH1D* >("mean_"+recos[r], 0 ) );
@@ -309,7 +326,7 @@ int main(int argc, char* argv[]) {
   // Map to 2D histograms for Crystal Ball jacobians
   std::map<string, TH2D*> h_jac_map;
   for(unsigned int r = 0; r<recos.size(); r++) {
-	if(skipUnsmearedReco && recos[r]=="reco") continue;
+	if(!saveUnsmearedReco && recos[r]=="reco") continue;
 	if(recos[r]=="smear1") continue;
 	// Crystal Ball jacobian event weights in a 4D bin, in a mass - gen mass bin
     h_jac_map.insert( std::make_pair<string, TH2D* >("jscale_cb_per_evt_"+recos[r], 0 ) );
@@ -335,7 +352,6 @@ int main(int argc, char* argv[]) {
 	    A_vals_fit(i) = -h_A_vals_prevfit_in->GetBinContent(i+1);
 	    e_vals_fit(i) = -h_e_vals_prevfit_in->GetBinContent(i+1);
 	    M_vals_fit(i) = -h_M_vals_prevfit_in->GetBinContent(i+1);
-		// TODO why update nom histos??
       }
       // Save the content of h_ _vals_prevfit_in to be passed to massfit.cpp without further changes
       h_A_vals_prevfit->Add(h_A_vals_prevfit_in, 1.0);
@@ -371,7 +387,7 @@ int main(int argc, char* argv[]) {
 
   // Define a single output file, we will write to and read from it at the different iterations 
   // If firstIter = 2, update an existing output file with iter -1,0 and 1 to (over)write iter 2 (the mass fit results)
-  TFile* fout = TFile::Open(("./massscales_"+tag+"_"+run+".root").c_str(), firstIter<2 ? "RECREATE" : "UPDATE");
+  TFile* fout = TFile::Open(("./inoutfiles/results/massscales_"+tag+"_"+run+".root").c_str(), firstIter<2 ? "RECREATE" : "UPDATE");
   
   // iter -1 -> data mass histos
   // iter  0 -> MC (and in TOYS MODE also pseudodata) mass histos + calculation of jacobian terms per event
@@ -436,7 +452,7 @@ int main(int argc, char* argv[]) {
       }, {"genweight"} ));        
 	  
 	  if (toysMode) {
-	  	// TOYS MODE: define MC smear0 weight -> even events are used as MC // TODO did you actually book histos with these weights in toysmode?
+	  	// TOYS MODE: define MC smear0 weight -> even events are used as MC 
 	  	dlast = std::make_unique<RNode>(dlast->Define("weight_smear0", [](ULong64_t entry, float weight) -> float
 	  	{
 			return std::copysign(1.0, weight)*(entry%2==0);
@@ -688,7 +704,7 @@ int main(int argc, char* argv[]) {
 		 "trackCharge", "genPt", "genEta", "genPhi", "Muon_ksmear"} ));
 
       for(unsigned int r = 0 ; r<recos.size(); r++) {
-		if(skipUnsmearedReco && recos[r]=="reco") continue;
+		if(!saveUnsmearedReco && recos[r]=="reco") continue;
 		if(!toysMode && recos[r]=="smear1") continue;
 
 	    unsigned int mpos = idx_map.at(recos[r]);
@@ -712,7 +728,7 @@ int main(int argc, char* argv[]) {
       }, {"masses"} ));
 
       // Define jacobian weights per event
-      dlast = std::make_unique<RNode>(dlast->Define("weights_jac", [n_bins,recos,skipUnsmearedReco,h_map,h_jac_map,idx_map](RVecF masses, RVecUI indexes) -> RVecF
+      dlast = std::make_unique<RNode>(dlast->Define("weights_jac", [n_bins,recos,saveUnsmearedReco,h_map,h_jac_map,idx_map](RVecF masses, RVecUI indexes) -> RVecF
 	  {
 	    RVecF out;
 	    if(masses.size()==0) {
@@ -729,7 +745,7 @@ int main(int argc, char* argv[]) {
 	    float gm  = masses.at(0);
 	    for(unsigned int r = 0 ; r<recos.size(); r++) {
 			if(recos[r]=="smear1") continue;
-			if(skipUnsmearedReco && recos[r]=="reco") { // TODO why not just continue?
+			if(!saveUnsmearedReco && recos[r]=="reco") { // Don't do "continue" in this case, the size of weights_jac must be fixed for the next step of defining jacobian columns in the df to work 
 				out.emplace_back(0.0);
 	            out.emplace_back(0.0);
 	            out.emplace_back(0.0);
@@ -754,8 +770,11 @@ int main(int argc, char* argv[]) {
 	        delta = h_mean->GetBinContent(indexes[r]+1);
 	        sigma = h_rms->GetBinContent(indexes[r]+1);
 	      }
-	      float jscale = sigma>0. ? +(m - (gm+delta) )*(gm+delta)/sigma/sigma : 0.0;
-	      float jwidth = sigma>0. ? +(m - (gm+delta) )*(m - (gm+delta) )/sigma/sigma - 1.0 : 0.0;
+		  // Scale jacobian weight per event
+	      float jscale = sigma>0. ? +(m - (gm+delta) )*(gm+delta)/sigma/sigma : 0.0; //TODO why the plus ? +(
+		  // Resoluion jacobian weight per event
+		  float jwidth = sigma>0. ? +(m - (gm+delta) )*(m - (gm+delta) )/sigma/sigma - 1.0 : 0.0; //TODO why the plus ? +(
+		  // Crystal Ball jacobian weights per event
 	      float jscale_cb = (sigma>0. && ijac_dm>0) ? h_jac_scale->GetBinContent(indexes[r]+1, ijac_dm) : 0.0;
 	      float jwidth_cb = (sigma>0. && ijac_dm>0) ? h_jac_width->GetBinContent(indexes[r]+1, ijac_dm) : 0.0;
 	      out.emplace_back(jscale);
@@ -767,7 +786,7 @@ int main(int argc, char* argv[]) {
       }, {"masses", "indexes"} ));
 
       for(unsigned int r = 0 ; r<recos.size(); r++) {
-		if(skipUnsmearedReco && recos[r]=="reco") continue; //TODO the weights name don't work for recos anyway
+		if(!saveUnsmearedReco && recos[r]=="reco") continue;
 		if(recos[r]=="smear1") continue;
 
         unsigned int jpos = (idx_map.at(recos[r])-1)*4;
@@ -886,7 +905,7 @@ int main(int argc, char* argv[]) {
     }
     else if(iter==0) { // Book MC histograms (and pseudodata in TOYS MODE)
       for(unsigned int r = 0 ; r<recos.size(); r++) {
-		if(skipUnsmearedReco && recos[r]=="reco") continue; //TODO the weights name don't work for recos anyway
+		if(!saveUnsmearedReco && recos[r]=="reco") continue;
 		if(!toysMode && recos[r]=="smear1") continue;
 		// x-axis: 4D bin index, y-axis: MC mass, weight = MC weight 
         df_histos2D.emplace_back(dlast->Histo2D({ "h_"+TString(recos[r].c_str())+"_bin_m",    "nominal", n_bins, 0, double(n_bins), m_bins, m_low, m_high},   "index_"+TString(recos[r].c_str()), TString(recos[r].c_str())+"_m", toysMode ? TString(("weight_"+recos[r]).c_str()) : "weight" ));
@@ -902,7 +921,7 @@ int main(int argc, char* argv[]) {
     else if(iter==1) { // Book jac histograms only for smear0 by default
       for(unsigned int r = 0 ; r<recos.size(); r++){
 		if(recos[r]=="smear1") continue;
-	    if(skipUnsmearedReco && recos[r]=="reco") continue;
+	    if(!saveUnsmearedReco && recos[r]=="reco") continue;
 		// x-axis: 4D bin index, y-axis: MC mass, weight = gaussian scale jacobian event weight
     	df_histos2D.emplace_back(dlast->Histo2D({"h_"+TString(recos[r].c_str())+"_bin_jac_scale", "nominal", n_bins, 0, double(n_bins), m_bins, m_low, m_high}, "index_"+TString(recos[r].c_str()), TString(recos[r].c_str())+"_m", TString(recos[r].c_str())+"_jscale_weight"));
     	// x-axis: 4D bin index, y-axis: MC mass, weight = gaussian width jacobian event weight
@@ -962,7 +981,7 @@ int main(int argc, char* argv[]) {
 
       for(unsigned int r = 0 ; r<recos.size(); r++) {
 
-		if(skipUnsmearedReco && recos[r]=="reco") continue;
+		if(!saveUnsmearedReco && recos[r]=="reco") continue;
 		if(recos[r]=="smear1") continue;
 	
 	    TH2D* h_reco_dm = (TH2D*)fout->Get(TString( ("h_"+recos[r]+"_bin_dm").c_str()) );
@@ -994,7 +1013,7 @@ int main(int argc, char* argv[]) {
 	      //cout << hi_m->Integral() << ", " << hi->Integral() << ", " << hi_m->GetMean() << endl;
 		  
 		  // 4D bin selection cuts
-	      if( hi_m->Integral() > minNumEvents && hi->Integral() > minNumEvents  &&  hi_m->GetMean()>( m_low + 5.0 ) && hi_m->GetMean()<( m_high - 5.0 ) ) { //TODO make this 5.0 an input parameter
+	      if( hi_m->Integral() > minNumEvents && hi->Integral() > minNumEvents  &&  hi_m->GetMean()>( m_low + 5.0 ) && hi_m->GetMean()<( m_high - 5.0 ) ) { 
 	        h_map.at("mask_"+recos[r])->SetBinContent(i+1, 1);
 
             // Gaus fit
@@ -1064,7 +1083,7 @@ int main(int argc, char* argv[]) {
       fout->cd();
     
       for(unsigned int r = 0 ; r<recos.size(); r++) {	 
-		if(skipUnsmearedReco && recos[r]=="reco") continue;
+		if(!saveUnsmearedReco && recos[r]=="reco") continue;
 		if(recos[r]=="smear1") continue;
 
 	    h_map["mean_"+recos[r]]->Write();
@@ -1104,6 +1123,7 @@ int main(int argc, char* argv[]) {
 
       // Get histograms needed for the mass fit
       TH2D* h_data_2D   = toysMode ? (TH2D*)fout->Get("h_smear1_bin_m") : (TH2D*)fout->Get("h_data_bin_m"); // TODO will this syntax actually work?
+	  // Use only smear0 MC in the fit, even if saveUnsmearedReco is true
       TH2D* h_nom_2D    = (TH2D*)fout->Get("h_smear0_bin_m"); //TODO do not name this nom
       TH1D* h_nom_mask  = (TH1D*)fout->Get("h_mask_smear0_bin_dm");
       TH2D* h_jscale_2D = useCB ? (TH2D*)fout->Get("h_smear0_bin_jac_scale_cb") : (TH2D*)fout->Get("h_smear0_bin_jac_scale");

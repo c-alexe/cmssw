@@ -1,4 +1,4 @@
-// Script to fit for the nominal resolution coefficients from the output of resolutionhistmaker(forcustomtuples).py
+// Script to fit for the coefficients of the nominal relative pT resolution (equal to the nominal relative k resolution) from the output of resolutionhistmaker(forcustomtuples).py
 // Can also fit for scale parameters A,epsilon,M
 
 Bool_t rescorr=false;
@@ -40,9 +40,9 @@ Double_t resmodel(Double_t *x, Double_t *par)
 void resolutionfitter() {
 	// Read input histogram
 	// TODO use tag for filenames
-	TFile* file=new TFile("inoutfiles/NominalResolution/nom_res_test_histos.root"); // nominal_resolution_histos.root
+	TFile* file=new TFile("inoutfiles/NominalResolution/globalcor_0_one_file_MC_2022_E_F_G_reshaped_histos.root"); // nominal_resolution_histos.root
 	TH3D* histo=(TH3D*)file->Get("histo");
-	TFile* output=new TFile("inoutfiles/NominalResolution/nom_res_test_coefficients.root","RECREATE"); // nominal_resolution_histos.root
+	TFile* output=new TFile("inoutfiles/NominalResolution/globalcor_0_one_file_MC_2022_E_F_G_reshaped_coefficients.root","RECREATE"); // nominal_resolution_coefficients.root
 	output->cd();
 
 	// Check that it matches the eta binning in massscales_data.cpp

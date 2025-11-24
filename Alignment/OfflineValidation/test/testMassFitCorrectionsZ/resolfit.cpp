@@ -1,7 +1,9 @@
 // It can be ran in data mode -> takes the mass width biases per 4D bin and fits for the pT resolution bias parameters c,d per eta 
 // OR toys mode (closure test) -> generates mass width biases from dummy cd biases and fits for cd from them
+// NOTE: the data mode can be used as a separate closure test if the input mass width biases were obtained from massscales_data.cpp with toysMode=true  
 // Authors: Cristina Alexe, Lorenzo Bianchini
 
+//TODO delete unneeded includes
 #include <ROOT/RDataFrame.hxx>
 #include "TFile.h"
 #include "TRandom3.h"
@@ -37,6 +39,7 @@ using namespace std;
 using namespace ROOT;
 using namespace ROOT::Minuit2;
 
+//TODO delete unneeded stuff
 typedef ROOT::VecOps::RVec<double> RVecD;
 using ROOT::RDF::RNode; 
 
@@ -46,8 +49,10 @@ class TheoryFcn : public FCNGradientBase {
 //class TheoryFcn : public FCNBase {
 
 public:
-  TheoryFcn(const int& debug, const int& seed, const int& bias, string fname, double maxSigmaErr, const string tag)
+  TheoryFcn(const int& debug, const int& seed, const int& bias, string fname, double maxSigmaErr, const string tag, const string nomResFile)
     : errorDef_(1.0), debug_(debug), seed_(seed), bias_(bias), maxSigmaErr_(maxSigmaErr)
+    // bias_ [-1 for data, >0 for toys: 1 for uniform random bias, 2 for eta dependent bias]
+    // maxSigmaErr_: max error on mass width bias to accept a data point
   {
 
     ran_ = new TRandom3(seed);
@@ -185,11 +190,18 @@ public:
       fin->Close();
 
       // Work out nominal (pT resolution divided by pT)^2 , as a function of eta and pT
-      TFile* faux = TFile::Open(("./root/nominal_resolution_coefficients_"+tag+".root").c_str(), "READ");
+      TFile* faux = TFile::Open(nomResFile.c_str(), "READ");
       //TFile* faux = TFile::Open("./root/coefficients2016ptfrom20forscaleptfrom20to70forres.root", "READ");
       if(faux!=0) {
 	      TH1D* histobudget = (TH1D*)faux->Get("resa");
 	      TH1D* histohitres = (TH1D*)faux->Get("resc");
+        try { // TODO uncomment after tests
+		      //if ((histobudget->GetNbinsX() == n_eta_bins_ &&  histobudget->GetXaxis()->GetBinLowEdge(1) - eta_edges_[0] < 0.001  &&  histobudget->GetXaxis()->GetBinLowEdge(histobudget->GetNbinsX()+1) - eta_edges_[n_eta_bins_] < 0.001) == false) throw 505;
+	      }
+	      catch (int errorCode) {
+		      std::cout<<"Eta binning of nominal resolution coefficients and masscales must match"<<std::endl;
+		      return;
+	      }
 	      for(unsigned int ieta=0; ieta<n_eta_bins_; ieta++) {
 	        double eta = 0.5*(eta_edges_[ieta]+eta_edges_[ieta+1]);
  	        int eta_bin = histobudget->FindBin(eta);
@@ -203,7 +215,8 @@ public:
 	          double hitres = histohitres->GetBinContent( eta_bin );
 	          double budget2 = budget*budget;
 	          double hitres2 = hitres*hitres;
-	          double out =  budget2 + hitres2/k/k ;
+            // Nominal (pT resolution divided by pT)^2
+	          double out =  budget2 + hitres2/k/k;
 	          resols2_[ieta*n_pt_bins_ + ipt] = out;
 	        }
 	      }
@@ -468,13 +481,14 @@ int main(int argc, char* argv[]) {
     options_description desc{"Options"};
     desc.add_options()
 	    ("help,h", "Help screen")
-	    ("ntoys",     value<long>()->default_value(1), "number of toys, should be 1 to use data")
-	    ("tag",         value<std::string>()->default_value("closure"), "tag of input data")
-	    ("run",         value<std::string>()->default_value("closure"), "run of input data")
-	    ("bias",        value<int>()->default_value(0), "bias [-1 for data, >0 for toys: 1 for uniform random bias, 2 for eta dependent bias]")
-	    ("maxSigmaErr", value<double>()->default_value(0.2), "max error on mass width bias to accept a data point")
-	    ("infile",      value<std::string>()->default_value("massscales"), "type of input data")
-	    ("seed",        value<int>()->default_value(4357), "seed for random toys with different cd bias");
+	    ("ntoys",                  value<long>()->default_value(1), "number of toys, should be 1 to use data")
+	    ("tag",                    value<std::string>()->default_value("closure"), "tag of input data")
+	    ("run",                    value<std::string>()->default_value("closure"), "run of input data")
+	    ("bias",                   value<int>()->default_value(0), "bias [-1 for data, >0 for toys: 1 for uniform random bias, 2 for eta dependent bias]")
+	    ("maxSigmaErr",            value<double>()->default_value(0.2), "max error on mass width bias to accept a data point")
+	    ("infile",                 value<std::string>()->default_value("massscales"), "type of input data")
+      ("nominalResolutionFile",  value<std::string>()->default_value("./inoutfiles/NominalResolution/globalcor_0_one_file_MC_2022_E_F_G_reshaped_coefficients.root"), "nominal resolution file name and path")
+	    ("seed",                   value<int>()->default_value(4357), "seed for random toys with different cd bias");
 
     store(parse_command_line(argc, argv, desc), vm);
     notify(vm);
@@ -490,13 +504,14 @@ int main(int argc, char* argv[]) {
     std::cerr << ex.what() << '\n';
   }
 
-  long ntoys         = vm["ntoys"].as<long>();
-  std::string tag    = vm["tag"].as<std::string>();
-  std::string infile = vm["infile"].as<std::string>();
-  std::string run    = vm["run"].as<std::string>();
-  int bias           = vm["bias"].as<int>();
-  int seed           = vm["seed"].as<int>();
-  double maxSigmaErr = vm["maxSigmaErr"].as<double>();
+  long ntoys             = vm["ntoys"].as<long>();
+  std::string tag        = vm["tag"].as<std::string>();
+  std::string infile     = vm["infile"].as<std::string>();
+  std::string run        = vm["run"].as<std::string>();
+  std::string nomResFile = vm["nominalResolutionFile"].as<std::string>();
+  int bias               = vm["bias"].as<int>();
+  int seed               = vm["seed"].as<int>();
+  double maxSigmaErr     = vm["maxSigmaErr"].as<double>();
   
   TFile* fout = TFile::Open(("./resolfit_"+tag+"_"+run+".root").c_str(), "RECREATE");
 
@@ -515,7 +530,7 @@ int main(int argc, char* argv[]) {
   // Initialize function to be minimized ( chi2/ndf - 1 )
   int debug = 0;
   string infname = infile+"_"+tag+"_"+run+".root";
-  TheoryFcn* fFCN = new TheoryFcn(debug, seed, bias, infname, maxSigmaErr,tag);  
+  TheoryFcn* fFCN = new TheoryFcn(debug, seed, bias, infname, maxSigmaErr, tag, nomResFile);  
   fFCN->SetErrorDef(1.0 / fFCN->get_n_dof());
   unsigned int n_parameters = fFCN->get_n_params();
   // Get the transformation of external to internal parameters

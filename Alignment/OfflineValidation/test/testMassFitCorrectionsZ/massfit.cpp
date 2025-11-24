@@ -190,7 +190,7 @@ public:
       n_dof_ = n_unmasked_bins - n_pars_;
       n_data_ = n_unmasked_bins;
 	
-      // Read the input curvature (not pT!) scale bias parameters A,e,M used to generate the toy from massscales_data.cpp with toysMode=true (OR 0 in massscales_data.cpp with toysMode=false)
+      // Read the input curvature (not pT) scale bias parameters A,e,M used to generate the toy from massscales_data.cpp with toysMode=true (OR 0 in massscales_data.cpp with toysMode=false)
       TH1D* h_A_vals = (TH1D*)fin->Get("h_A_vals_nom");
       TH1D* h_e_vals = (TH1D*)fin->Get("h_e_vals_nom");
       TH1D* h_M_vals = (TH1D*)fin->Get("h_M_vals_nom");
@@ -614,10 +614,10 @@ int main(int argc, char* argv[]) {
   TH1D* h_e_vals_prevfit  = new TH1D("h_e_vals_prevfit", "#hat{e}", n_parameters/3, 0, n_parameters/3);
   TH1D* h_M_vals_prevfit  = new TH1D("h_M_vals_prevfit", "#hat{M}", n_parameters/3, 0, n_parameters/3);
 
-  // Toy mode: mass scale biases from input pT scale bias AeM TODO better comment
+  // pT scales from input pT scale biases A,e,M (makes sense for toys, 0 for data)  
   TH2D* h_scales_nom_plus   = new TH2D("h_scales_nom_plus", "scales nominal plus; #eta bin", n_parameters/3, 0, n_parameters/3,
 				       50, fFCN->get_first_pt_edge(), fFCN->get_last_pt_edge() );
-  // Data mode: scales from the sum of pT scale biases A,e or M obtained in all the previous iterations + the ones obtained in the current iteration
+  // pT scales from the sum of pT scale biases A,e or M obtained in all the previous iterations + the ones obtained in the current iteration
   TH2D* h_scales_fit_plus   = new TH2D("h_scales_fit_plus", "scales plus; #eta bin", n_parameters/3, 0, n_parameters/3,
 				       50, fFCN->get_first_pt_edge(), fFCN->get_last_pt_edge() );
   TH2D* h_scales_nom_minus  = new TH2D("h_scales_nom_minus", "scales nominal minus; #eta bin", n_parameters/3, 0, n_parameters/3,
@@ -692,15 +692,17 @@ int main(int argc, char* argv[]) {
       xErr(i) = TMath::Sqrt(Vout(i,i));
     }    
 
-    // Save scale histograms for first toy / data
-    // TODO is this incorrect for toys for now due to the AeM signs and nom histograms?
+    // Save pT scale histograms for first toy / data
+    // TODO check that results make sense and we fit for the input bias, otherwise I put some minus signs wrong somewhere
     if(itoy<1) {
       for(unsigned int ib = 0 ; ib<n_parameters/3; ib++) {
         Eigen::Vector3d xi;
+        // pT biases A,e,M obtained in this iteration + sum of those obtained from previous iterations
         xi <<
 	        x(ib) + fFCN->get_A_prevfit(ib),
 	        x(ib + n_parameters/3) + fFCN->get_e_prevfit(ib),
 	        x(ib + 2*n_parameters/3) + fFCN->get_M_prevfit(ib); 
+        // Nominal input pT biases A,e,M
         Eigen::Vector3d xnomi;
         xnomi <<
 	        fFCN->get_true_params(ib, true),

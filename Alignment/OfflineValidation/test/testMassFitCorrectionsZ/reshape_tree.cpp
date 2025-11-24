@@ -35,8 +35,8 @@ int main() {
     auto start = std::chrono::high_resolution_clock::now();
 
     // Read input and output directory names
-    std::string input_directory = "/afs/cern.ch/user/c/calexe/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/data/";
-    std::string output_directory = "/afs/cern.ch/user/c/calexe/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/data_reshaped/";
+    std::string input_directory = "/afs/cern.ch/user/c/calexe/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/mc/";
+    std::string output_directory = "/afs/cern.ch/user/c/calexe/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/mc_reshaped/";
     // Check that the output directory is not the same or a subdirectory of the input directory 
     try {
         if (input_directory[input_directory.length() - 1]!='/') input_directory.insert(input_directory.end(),'/');
@@ -186,9 +186,7 @@ int main() {
             // Write and close files
             tree_out->Write();
             f_out->Write();
-            std::cout<<"f_out->Write();";
             f_in->Close();
-            std::cout<<"f_in->Close();";
         //break; // do only 1 file for debugging
         }
     }
