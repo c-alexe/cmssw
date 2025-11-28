@@ -105,8 +105,8 @@ public:
     
     // Prepare storage for fit inputs and results
     // TODO give up using reserve
-    scales2_.reserve(n_data_); // biased mass scale squared -> (beta + 1.0)^2
-    scales2Err_.reserve(n_data_); // error on the squared biased mass scale
+    scales2_.reserve(n_data_); // mass scale bias squared -> beta^2 
+    scales2Err_.reserve(n_data_); // error on the mass scale bias
     masks_.reserve(n_data_); // 1/0 if keeping(ignoring) a 4D bin in the fit
     for(unsigned int idata = 0; idata<n_data_; idata++) {
       scales2_.push_back( 0.0 );
@@ -175,7 +175,7 @@ public:
 	      cout << "No data file found! Will quit" << endl;
   	    return;
       }
-      TH1D* h_scales = (TH1D*)fin->Get("h_scales"); // mass scale bias -> beta + 1.0
+      TH1D* h_scales = (TH1D*)fin->Get("h_scales"); // mass scale bias -> beta 
       TH1D* h_masks = (TH1D*)fin->Get("h_masks");
       assert( h_scales->GetXaxis()->GetNbins() == n_data_);
 

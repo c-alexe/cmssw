@@ -1101,11 +1101,11 @@ int main(int argc, char* argv[]) {
       int inmassbins, indof, ibinIdx  ;
       float inevents, ibeta, ibetaErr, ialpha, ialphaErr, inu, inuErr, iprob, ichi2old, ichi2new; 
       treescales->Branch("nevents",&inevents,"nevents/F");
-      treescales->Branch("beta",&ibeta,"beta/F");
+      treescales->Branch("beta + 1",&ibeta,"beta/F");
       treescales->Branch("betaErr",&ibetaErr,"betaErr/F");
-      treescales->Branch("alpha",&ialpha,"alpha/F");
+      treescales->Branch("alpha + 1",&ialpha,"alpha/F");
       treescales->Branch("alphaErr",&ialphaErr,"alphaErr/F");
-      treescales->Branch("nu",&inu,"nu/F");
+      treescales->Branch("nu + 1",&inu,"nu/F");
       treescales->Branch("nuErr",&inuErr,"nuErr/F");
       treescales->Branch("prob",&iprob,"prob/F");
       treescales->Branch("chi2old",&ichi2old,"chi2old/F"); // prefit agreement between data and MC
@@ -1234,9 +1234,9 @@ int main(int argc, char* argv[]) {
         // Mass fit
 	    MatrixXd A = inv_sqrtV*jac;
 	    VectorXd b = inv_sqrtV*(y-y0);
-		// x contains the solution: x(0)=beta, x(1)=alpha, x(2)=nu
+		// x contains the solution: x(0) = beta - 1.0, x(1) = alpha - 1.0, x(2)= nu - 1.0
 	    VectorXd x = A.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
-		// covariance matrix between beta, alpha, nu
+		// covariance matrix between beta - 1 , alpha - 1 , nu - 1 
 	    MatrixXd C = (jac.transpose()*inv_V*jac).inverse();
 	    MatrixXd rho( C.rows(), C.rows() ) ;
 	    for(unsigned int ir = 0; ir<C.rows(); ir++) {
@@ -1265,11 +1265,11 @@ int main(int argc, char* argv[]) {
 	    treescales->Fill();
 	    //cout << "Filling tree" << endl;
 	
-        h_scales->SetBinContent(ibin+1, ibeta+1.0); // Save and pass to massfit: scale = 1 + beta
+        h_scales->SetBinContent(ibin+1, ibeta+1.0); // Save and pass to massfit: scale bias = beta
         h_scales->SetBinError(ibin+1, ibetaErr);
-	    h_norms->SetBinContent(ibin+1, inu+1.0); // Save and pass to massfit: norm = 1 + nu
+	    h_norms->SetBinContent(ibin+1, inu+1.0); // Save and pass to massfit: norm bias = nu
 	    h_norms->SetBinError(ibin+1, inuErr);
-	    h_widths->SetBinContent(ibin+1, ialpha+1.0); // Save and pass to massfit: width = 1 + alpha
+	    h_widths->SetBinContent(ibin+1, ialpha+1.0); // Save and pass to massfit: width bias = alpha
 	    h_widths->SetBinError(ibin+1, ialphaErr);
 	    h_probs->SetBinContent(ibin+1, prob);
 	    h_probs->SetBinError(ibin+1, 0.);
@@ -1305,6 +1305,7 @@ int main(int argc, char* argv[]) {
       cout << h_masks->Integral() << " scales have been computed" << endl;
     }
 
+	for(auto r : rans) delete r;
   }
   
   sw.Stop();
@@ -1313,5 +1314,7 @@ int main(int argc, char* argv[]) {
 
   fout->Close(); 
   
+  delete ran0;
+
   return 0;
 }

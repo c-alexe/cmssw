@@ -102,7 +102,7 @@ public:
     n_dof_ = 0;
     
     // Prepare storage for fit inputs and results
-    sigmas2_.reserve(n_data_); // mass widths biases -> (alpha + 1.0)^2
+    sigmas2_.reserve(n_data_); // mass resolution biases squared -> alpha^2
     sigmas2Err_.reserve(n_data_);
     resols2_.reserve(n_eta_bins_*n_pt_bins_); // nominal (pT resolution divided by pT)^2 , as a function of eta and pT
     masks_.reserve(n_data_); // 1/0 if keeping(ignoring) a 4D bin in the fit
@@ -162,7 +162,7 @@ public:
         cout << "No data file found! Will quit" << endl;
         return;
       }
-      TH1D* h_widths = (TH1D*)fin->Get("h_widths"); // mass width bias -> alpha + 1.0
+      TH1D* h_widths = (TH1D*)fin->Get("h_widths"); // mass resolution bias -> alpha
       TH1D* h_masks = (TH1D*)fin->Get("h_masks"); // 1/0 if keeping(ignoring) a 4D bin in the fit
       assert( h_widths->GetXaxis()->GetNbins() == n_data_);
 
@@ -360,7 +360,9 @@ void TheoryFcn::generate_data() {
 }
 
 // Define function to be minimised from mass width bias ^2 values and errors and pT resolution biases parameters cd -> will obtain cd
-//TODO spell out used equations in a comment
+// chi^2 as function of the c and d parameters (note they are not the same as c and d in NominalResolutionFitter.C) is: 
+// chi^2 = sum_over_4D_bins{ [ mass_width_bias^2 - nom_relative_pT_resolution^2(eta_p)/(nom_relative_pT_resolution^2(eta_p) + nom_relative_pT_resolution^2(eta_m))*(1 + c(eta_p) + d(eta_p)*k_p)
+//  - nom_relative_pT_resolution^2(eta_m)/(nom_relative_pT_resolution^2(eta_p) + nom_relative_pT_resolution^2(eta_m))*(1 + c(eta_m) + d(eta_m)*k_m) ]^2 / (mass_width_bias^2_err)^2 }
 double TheoryFcn::operator()(const vector<double>& par) const {
 
   double val = 0.0;
