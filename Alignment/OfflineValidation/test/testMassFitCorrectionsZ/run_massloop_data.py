@@ -68,7 +68,7 @@ def loop_one(seed, toy_number):
     cmd_resol_iter0 = './resolfit --ntoys=1 --bias=-1 '+\
         ' --tag='+tag+' '+\
         ' --run=Iter0 '+\
-        ' --nominalResolutionFile=./inoutfiles/NominalResolution/globalcor_0_one_file_MC_2022_E_F_G_reshaped_coefficients.root ' +\
+        ' --nominalResolutionFile=./inoutfiles/NominalResolution/Run3Summer22EE_nominal_resolution_coefficients.root ' +\
         ' --maxSigmaErr=0.1 '
     if not args.forceIter>0:
         print(cmd_resol_iter0)

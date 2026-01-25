@@ -5,14 +5,15 @@ using namespace std;
 using namespace ROOT;
 using ROOT::RDF::RNode;
 
-int main() {
+void lumi_MC_calculator(std::string pathToMCFiles) {
     ROOT::EnableImplicitMT();
 
-    // Zmumu cross section in fb
+    // Zmumu cross section in fb from Run 2
+    // TODO confirm we can use same xsec as run2  xsec_ZmmPostVFP = 2001.9
     double xsec = 2001.9e+03;  
 
-    //TFile* fout = TFile::Open("lumi_MC_out.root", "RECREATE");
-    ROOT::RDataFrame d( "preCutsTree", "/afs/cern.ch/user/c/calexe/CMSSW_14_0_18/src/RecoTracker/TrackProducer/test/globalcor_0_preCutsTree.root" );
+    //TFile* fout = TFile::Open("./inoutfiles/results/lumi_MC.root", "RECREATE");
+    ROOT::RDataFrame d( "preCutsTree", pathToMCFiles );
     
     auto dlast = std::make_unique<RNode>(d);
     std::cout <<"Total initial entries count is " << *(dlast->Count()) << std::endl;
@@ -25,6 +26,7 @@ int main() {
 
     // Book weight histo
     auto myHist = dlast->Histo1D({"h_genweight", "h_genweight", 2, -1., 1.1}, "weight");
-    std::cout << ( myHist->GetBinContent(2) - myHist->GetBinContent(1) ) / xsec ; //TODO confirm with someone the weights are right and xsec is same as run2  xsec_ZmmPostVFP = 2001.9
+    std::cout << "Equivalent integrated lumi of MC in fb^-1 = number of weighted events / xsec " << ( myHist->GetBinContent(2) - myHist->GetBinContent(1) ) / xsec << std::endl;
+    // myHist->Write();
 
 }

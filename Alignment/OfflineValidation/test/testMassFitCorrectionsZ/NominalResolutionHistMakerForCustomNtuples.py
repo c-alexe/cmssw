@@ -102,7 +102,7 @@ d = d.Redefine("genPt", "genPt*genCharge")
 # Eta binning should be the same as in massscales_data.cpp
 binning_eta = array('d',[round(-2.4 + i*0.2,2) for i in range(25)])
 binning_pt = array('d',[round(-100. + i*4.,2) for i in range(51)]) # binning_pt = array('d',[round(-100. + i*1.,2) for i in range(201)])
-binning_reso = array('d',[-0.5+i*0.0005 for i in range(2001)])
+binning_reso = array('d',[-0.5+i*0.002 for i in range(501)]) # binning_reso = array('d',[-0.5+i*0.0005 for i in range(2001)])
 
 model = ROOT.RDF.TH3DModel("histo", "reso-qpt-eta",
                            len(binning_reso)-1, binning_reso,

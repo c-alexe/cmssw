@@ -3,9 +3,9 @@
 
 Bool_t rescorr=false;
 
-// pT range relevant for mass fits
-Double_t innercut=20.;
-Double_t outercut=60.;
+// pT range for fits
+Double_t innercut=8.;
+Double_t outercut=100.;
 
 // scale model A + epsilon/|pT| + M*pT
 Double_t scalemodel(Double_t *x, Double_t *par)
@@ -39,10 +39,9 @@ Double_t resmodel(Double_t *x, Double_t *par)
 
 void resolutionfitter() {
 	// Read input histogram
-	// TODO use tag for filenames
-	TFile* file=new TFile("inoutfiles/NominalResolution/globalcor_0_one_file_MC_2022_E_F_G_reshaped_histos.root"); // nominal_resolution_histos.root
+	TFile* file=new TFile("inoutfiles/NominalResolution/Run3Summer22EE_nominal_resolution_histos.root"); // _nominal_resolution_histos.root
 	TH3D* histo=(TH3D*)file->Get("histo");
-	TFile* output=new TFile("inoutfiles/NominalResolution/globalcor_0_one_file_MC_2022_E_F_G_reshaped_coefficients.root","RECREATE"); // nominal_resolution_coefficients.root
+	TFile* output=new TFile("inoutfiles/NominalResolution/Run3Summer22EE_nominal_resolution_coefficients.root","RECREATE"); // _nominal_resolution_coefficients.root
 	output->cd();
 
 	// Check that it matches the eta binning in massscales_data.cpp
@@ -72,6 +71,9 @@ void resolutionfitter() {
 			std::string histname("histo_");
 			histname+=std::to_string(i)+std::string("_")+std::to_string(j); 
 			TH1D* histo1=(TH1D*)histo->Project3D("x")->Clone(histname.c_str());
+			// Reject histo if low stats
+			if (histo1->Integral() < 1000.0) continue;
+			if (histo1->Integral() < 2000.0) histo1->Rebin(2);
 			std::string histtitle;
 			histtitle+=std::to_string(mineta)+std::string("<#eta<")+std::to_string(maxeta)+std::string(" ")+std::to_string(minpt)+std::string("<#pt<")+std::to_string(maxpt);
 			histo1->SetTitle(histtitle.c_str());
@@ -79,17 +81,17 @@ void resolutionfitter() {
 			std::string model("((abs(x-[1])<=[3]*abs([2]))*[0]*exp(-(x-[1])*(x-[1])/(2*[2]*[2])))"); // if data point is central, fit gaussian
 			model+=std::string("+((abs(x-[1])>[3]*abs([2]))*[0]*exp([3]*[3]/2)*exp(-[3]/abs([2])*abs(x-[1])))+[4]"); // otherwise fit tail 
 			int maxbin=histo1->GetMaximumBin();
-			float hwhm; //TODO not assigned initial value
+			float hwhm=0.;
 			for (unsigned int h=maxbin; h!=histo1->GetXaxis()->GetNbins(); h++) { 
 				if (histo1->GetBinContent(h+1)>0.5*histo1->GetBinContent(maxbin)) hwhm=histo1->GetBinCenter(h+1)-histo1->GetBinCenter(maxbin);
 			}
-			float kfit=4, kfit2=4.5; // range for resolution fits
+			float kfit=7.5, kfit2=9.; // range for resolution fits
 			auto fa1 = new TF1("fa1",model.c_str(),histo1->GetBinCenter(maxbin)-kfit*hwhm,histo1->GetBinCenter(maxbin)+kfit*hwhm);
 			fa1->SetParameter(0,histo1->GetBinContent(maxbin));
 			fa1->SetParameter(1,histo1->GetBinCenter(maxbin));
 			fa1->SetParameter(2,hwhm);
-			fa1->SetParameter(3,3); // exponential tails
-			fa1->SetParameter(4,0);
+			fa1->SetParameter(3,6.); // exponential tails, make sure they don't start too close to distribution center
+			fa1->SetParameter(4,0.);
 			auto r1 = histo1->Fit(fa1, "LS", "", histo1->GetBinCenter(maxbin)-kfit*hwhm,histo1->GetBinCenter(maxbin)+kfit*hwhm); // initial fit
 			auto fa2 = new TF1("fa2",model.c_str(),histo1->GetBinCenter(maxbin)-kfit2*abs(r1->Parameter(2)),histo1->GetBinCenter(maxbin)+kfit2*abs(r1->Parameter(2)));
 			fa2->SetParameter(0,r1->Parameter(0));

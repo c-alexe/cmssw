@@ -30,13 +30,13 @@ using ROOT::RDF::RNode;
 
 
 
-int main() {
+int reshape_tree() {
     ROOT::EnableImplicitMT();
     auto start = std::chrono::high_resolution_clock::now();
 
     // Read input and output directory names
-    std::string input_directory = "/afs/cern.ch/user/c/calexe/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/mc/";
-    std::string output_directory = "/afs/cern.ch/user/c/calexe/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/mc_reshaped/";
+    std::string input_directory = "/gpfs/ddn/srm/cms/store/user/calexe/Muon/Run2022E-22Sep2023-v1-with-CVH/251111_133428/0000/";
+    std::string output_directory = "/home/users/alexe/workingarea/CMSSW_15_0_0_pre1/src/Alignment/OfflineValidation/test/testMassFitCorrectionsZ/inoutfiles/Run2022E-22Sep2023-v1-with-CVH-reshaped/";
     // Check that the output directory is not the same or a subdirectory of the input directory 
     try {
         if (input_directory[input_directory.length() - 1]!='/') input_directory.insert(input_directory.end(),'/');
@@ -60,7 +60,7 @@ int main() {
     
     // For each file in the input directory
     for (const auto& entry : fs::recursive_directory_iterator(input_directory)) {
-        if (entry.is_regular_file() && entry.path().extension() == ".root") {
+      if (entry.is_regular_file() && entry.path().extension() == ".root") { // entry.path().string()[entry.path().string().length() - 6]=='0'
 
             // Open input file
             TFile* f_in = TFile::Open(entry.path().string().c_str(), "READ");
@@ -187,7 +187,7 @@ int main() {
             tree_out->Write();
             f_out->Write();
             f_in->Close();
-        //break; // do only 1 file for debugging
+	    // break; // do only 1 file for debugging
         }
     }
     auto end = std::chrono::high_resolution_clock::now();

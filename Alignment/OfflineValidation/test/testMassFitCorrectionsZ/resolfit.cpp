@@ -515,7 +515,7 @@ int main(int argc, char* argv[]) {
   int seed               = vm["seed"].as<int>();
   double maxSigmaErr     = vm["maxSigmaErr"].as<double>();
   
-  TFile* fout = TFile::Open(("./resolfit_"+tag+"_"+run+".root").c_str(), "RECREATE");
+  TFile* fout = TFile::Open(("./inoutfiles/results/resolfit_"+tag+"_"+run+".root").c_str(), "RECREATE");
 
   // Define TTree with fit qualities
   TTree* tree = new TTree("tree", "tree");
@@ -531,7 +531,7 @@ int main(int argc, char* argv[]) {
 
   // Initialize function to be minimized ( chi2/ndf - 1 )
   int debug = 0;
-  string infname = infile+"_"+tag+"_"+run+".root";
+  string infname = "./inoutfiles/results/"+infile+"_"+tag+"_"+run+".root";
   TheoryFcn* fFCN = new TheoryFcn(debug, seed, bias, infname, maxSigmaErr, tag, nomResFile);  
   fFCN->SetErrorDef(1.0 / fFCN->get_n_dof());
   unsigned int n_parameters = fFCN->get_n_params();

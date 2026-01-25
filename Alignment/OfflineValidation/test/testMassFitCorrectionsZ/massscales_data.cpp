@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
 	  ("minNumEventsPerBin", value<int>()->default_value(10), "min number of events for a bin of a histogram to be accepted")
 	  ("pathToDataFiles",    value<std::string>()->default_value("./inoutfiles/data/*"), "path to data files") 
 	  ("pathToMCFiles",      value<std::string>()->default_value("./inoutfiles/mc/*"), "path to MC files")
-	  ("lumiData",           value<float>()->default_value(-1.), "recorded luminosity in fb^-1 (use brilcalc with the JSON used to produce the CVH sample)")
+	  ("lumiData",           value<float>()->default_value(-1.), "recorded luminosity in fb^-1 (use brilcalc with processedLumis.json / the JSON used to produce the CVH sample from /eos/user/c/cmsdqm/www/CAF/certification/)")
 	  // https://twiki.cern.ch/twiki/bin/view/CMS/BrilcalcQuickStart 
 	  ("lumiMC",             value<float>()->default_value(-1.), "number of weighted events in MC before CVH processing divided by process cross section in fb at relevant sqrt(s) (use lumi_MC_calculator.cpp)")
 	  // see TODO in lumi_MC_calculator.cpp
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
 	  ("scaleToData",        bool_switch()->default_value(false), "scale MC to data in 4D bin")
 	  // TOYS MODE
 	  ("toysMode",              bool_switch()->default_value(false), "TOYS MODE: generate pseudodata from MC TODO more detail")
-	  ("nominalResolutionFile", value<std::string>()->default_value("./inoutfiles/NominalResolution/globalcor_0_tag_coefficients.root"), "TOYS MODE: nominal resolution file")
+	  ("nominalResolutionFile", value<std::string>()->default_value("./inoutfiles/NominalResolution/nominal_resolution_coefficients.root"), "TOYS MODE: nominal resolution file")
 	  ("biasResolutionRange",   value<float>()->default_value(-1.), "TOYS MODE: input resolution curvature bias randomly sampled from -biasResolutionRange to biasResolutionRange")
 	  ("useMCasData",           bool_switch()->default_value(false), "TOYS MODE: use reco as MC and biased smeared reco as pseudodata")
 	  ("seed",                  value<int>()->default_value(4357), "TOYS MODE: seed for random numbers");
@@ -169,11 +169,11 @@ int main(int argc, char* argv[]) {
 	return 0;
   } 
 
-  //vector<float> pt_edges  = {25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0}; 
-  vector<float> pt_edges  = {25.0, 40.0, 55.0}; 
-  vector<float> eta_edges = {-2.4, -1.2, 0.0, 1.2, 2.4};
-  //vector<float> eta_edges = {-2.4, -2.2, -2.0, -1.8, -1.6, -1.4, -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0,
-  //                           0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4};
+  vector<float> pt_edges  = {25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0}; 
+  //vector<float> pt_edges  = {25.0, 40.0, 55.0}; 
+  //vector<float> eta_edges = {-2.4, -1.2, 0.0, 1.2, 2.4};
+  vector<float> eta_edges = {-2.4, -2.2, -2.0, -1.8, -1.6, -1.4, -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0,
+                             0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4};
 
   TH1F* h_pt_edges  = new TH1F("h_pt_edges", "",  pt_edges.size()-1, pt_edges.data());
   TH1F* h_eta_edges = new TH1F("h_eta_edges", "", eta_edges.size()-1, eta_edges.data());
@@ -269,19 +269,21 @@ int main(int argc, char* argv[]) {
   TH1D* histobudget = 0;
   TH1D* histohitres = 0;
   TFile* faux_res = toysMode ? TFile::Open(nominalResolutionFile.c_str(), "READ") : 0; 
-  if(toysMode && faux_res!=0) {
-    histobudget = (TH1D*)faux_res->Get("resa");
-    histohitres = (TH1D*)faux_res->Get("resc");
-	try { // TODO uncomment after tests
+  if(toysMode){
+  	if(faux_res!=0) {
+      histobudget = (TH1D*)faux_res->Get("resa");
+      histohitres = (TH1D*)faux_res->Get("resc");
+	  try { // TODO uncomment after tests
 		//if ((histobudget->GetNbinsX() == n_eta_bins &&  histobudget->GetXaxis()->GetBinLowEdge(1) - eta_edges[0] < 0.001  &&  histobudget->GetXaxis()->GetBinLowEdge(histobudget->GetNbinsX()+1) - eta_edges[n_eta_bins] < 0.001) == false) throw 503;
-	}
-	catch (int errorCode) {
+	  }
+	  catch (int errorCode) {
 		if (errorCode == 503) std::cout<<"Eta binning of nominal resolution coefficients and masscales must match"<<std::endl;
 		return 0;
-	} 
-  } else {
-    cout << "No nominal resolution file found! Will quit" << endl;
-    return 0;
+	  } 
+  	} else {
+      cout << "No nominal resolution file found! Will quit" << endl;
+      return 0;
+    }
   }
 
   auto resolution = [histobudget, histohitres](float k, float eta, float bias) -> float
@@ -340,7 +342,7 @@ int main(int argc, char* argv[]) {
   if(toysMode) idx_map.insert( std::make_pair<string, unsigned int >("smear1", 3 ) ); //TODO check where size of idx_map is called, maybe better to keep always size 3
 
   if(usePrevMassFit) {
-    TFile* ffit = TFile::Open(("./massfit_"+tagPrevMassFit+"_"+runPrevMassFit+".root").c_str(), "READ");
+    TFile* ffit = TFile::Open(("./inoutfiles/results/massfit_"+tagPrevMassFit+"_"+runPrevMassFit+".root").c_str(), "READ");
     if(ffit!=0) {    
       cout << "Using fit results from " <<  std::string(ffit->GetName()) << " as new nominal for smear0" << endl;
       // Read the sum of the pT scale bias parameters A, e or M from all the previous iterations
@@ -365,7 +367,7 @@ int main(int argc, char* argv[]) {
   }
 
   if(usePrevResolFit) {
-    TFile* ffit = TFile::Open(("./resolfit_"+tagPrevResolFit+"_"+runPrevResolFit+".root").c_str(), "READ");
+    TFile* ffit = TFile::Open(("./inoutfiles/results/resolfit_"+tagPrevResolFit+"_"+runPrevResolFit+".root").c_str(), "READ");
     if(ffit!=0) {    
       cout << "Using fit results from " <<  std::string(ffit->GetName()) << " as MC smear" << endl;
 	  // Read the sum of the resolution biases c or d from all the previous iterations
@@ -407,8 +409,13 @@ int main(int argc, char* argv[]) {
 	else cout << endl << "DATA MODE: Doing iter " << iter << " [ -1: fills data histos, 0: fills MC histos, 1(needs 0): fills jacobians, 2(needs -1,0,1): fits for scale/resolution bias ]" << endl << endl;
 
 	// Define dataframe for the input files relevant to the current iteration 
-    ROOT::RDataFrame d( "tree", iter>=0 ? pathToMCFiles : pathToDataFiles );
+    //ROOT::RDataFrame d( "tree", iter>=0 ? pathToMCFiles : pathToDataFiles );
+    std::vector<std::string> in_files = {};
 
+    if (iter>=0) in_files = {"./inoutfiles/Run3Summer22MiniAODv4-130X_mcRun3_2022_realistic_v5-v3_CVH_reshaped/*.root"};
+    else in_files = {"./inoutfiles/Run2022C-22Sep2023-v1-with-CVH-reshaped/251105_184648/0000/*.root", "./inoutfiles/Run2022C-22Sep2023-v1-with-CVH-reshaped/251105_184648/0001/*.root", "./inoutfiles/Run2022D-22Sep2023-v1-with-CVH-reshaped/251110_113908/0000/*.root", "./inoutfiles/Run2022E-22Sep2023-v1-with-CVH-reshaped/251111_133428/0000/*.root"};
+    ROOT::RDataFrame d( "tree", in_files );
+    
 	// TOYS MODE: Define vector of different TRandom variables to be used by different threads
 	unsigned int nslots = d.GetNSlots();
 	if(nslots>384) cout<<"WARNING: check seed increment for toys in run_massloop.py, current implementation for 384 threads" << endl;
