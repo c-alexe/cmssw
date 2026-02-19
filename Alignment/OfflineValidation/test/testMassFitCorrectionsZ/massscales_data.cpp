@@ -40,6 +40,7 @@
 #include "Minuit2/FCNGradientBase.h"
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
+#include <filesystem>
 
 //#include <Eigen/Core>
 //#include <Eigen/Dense>
@@ -81,6 +82,7 @@ int main(int argc, char* argv[]) {
 	  // https://twiki.cern.ch/twiki/bin/view/CMS/BrilcalcQuickStart 
 	  ("lumiMC",             value<float>()->default_value(-1.), "number of weighted events in MC before CVH processing divided by process cross section in fb at relevant sqrt(s) (use lumi_MC_calculator.cpp)")
 	  // see TODO in lumi_MC_calculator.cpp
+	  ("out_folder",         value<std::string>()->default_value("out"), "name of output subdirectory")
 	  ("tag",                value<std::string>()->default_value("closure"), "run type, type of data used")
 	  ("run",                value<std::string>()->default_value("closure"), "number of iteration")
 	  ("saveMassFitHistos",  bool_switch()->default_value(false), "save pre and postfit mass distribution in 4D bin")
@@ -128,6 +130,7 @@ int main(int argc, char* argv[]) {
   float lumiData              = vm["lumiData"].as<float>();
   float lumiMC                = vm["lumiMC"].as<float>();
   float nRMSforGausFit        = vm["nRMSforGausFit"].as<float>();
+  std::string out_folder      = vm["out_folder"].as<std::string>();
   std::string tag             = vm["tag"].as<std::string>();
   std::string run             = vm["run"].as<std::string>();
   int minNumEventsPerBin      = vm["minNumEventsPerBin"].as<int>();
@@ -342,7 +345,7 @@ int main(int argc, char* argv[]) {
   if(toysMode) idx_map.insert( std::make_pair<string, unsigned int >("smear1", 3 ) ); //TODO check where size of idx_map is called, maybe better to keep always size 3
 
   if(usePrevMassFit) {
-    TFile* ffit = TFile::Open(("./inoutfiles/results/massfit_"+tagPrevMassFit+"_"+runPrevMassFit+".root").c_str(), "READ");
+    TFile* ffit = TFile::Open(("./inoutfiles/results/"+out_folder+"/massfit_"+tagPrevMassFit+"_"+runPrevMassFit+".root").c_str(), "READ");
     if(ffit!=0) {    
       cout << "Using fit results from " <<  std::string(ffit->GetName()) << " as new nominal for smear0" << endl;
       // Read the sum of the pT scale bias parameters A, e or M from all the previous iterations
@@ -367,7 +370,7 @@ int main(int argc, char* argv[]) {
   }
 
   if(usePrevResolFit) {
-    TFile* ffit = TFile::Open(("./inoutfiles/results/resolfit_"+tagPrevResolFit+"_"+runPrevResolFit+".root").c_str(), "READ");
+    TFile* ffit = TFile::Open(("./inoutfiles/results/"+out_folder+"/resolfit_"+tagPrevResolFit+"_"+runPrevResolFit+".root").c_str(), "READ");
     if(ffit!=0) {    
       cout << "Using fit results from " <<  std::string(ffit->GetName()) << " as MC smear" << endl;
 	  // Read the sum of the resolution biases c or d from all the previous iterations
@@ -389,7 +392,11 @@ int main(int argc, char* argv[]) {
 
   // Define a single output file, we will write to and read from it at the different iterations 
   // If firstIter = 2, update an existing output file with iter -1,0 and 1 to (over)write iter 2 (the mass fit results)
-  TFile* fout = TFile::Open(("./inoutfiles/results/massscales_"+tag+"_"+run+".root").c_str(), firstIter<2 ? "RECREATE" : "UPDATE");
+  if (!std::filesystem::exists("./inoutfiles/results/"+out_folder+"/")) {
+  	std::filesystem::create_directories("./inoutfiles/results/"+out_folder+"/");
+	std::cout << "Directory created ./inoutfiles/results/"+out_folder+"\n";
+  }
+  TFile* fout = TFile::Open(("./inoutfiles/results/"+out_folder+"/massscales_"+tag+"_"+run+".root").c_str(), firstIter<2 ? "RECREATE" : "UPDATE");
   
   // iter -1 -> data mass histos
   // iter  0 -> MC (and in TOYS MODE also pseudodata) mass histos + calculation of jacobian terms per event
@@ -409,12 +416,15 @@ int main(int argc, char* argv[]) {
 	else cout << endl << "DATA MODE: Doing iter " << iter << " [ -1: fills data histos, 0: fills MC histos, 1(needs 0): fills jacobians, 2(needs -1,0,1): fits for scale/resolution bias ]" << endl << endl;
 
 	// Define dataframe for the input files relevant to the current iteration 
-    //ROOT::RDataFrame d( "tree", iter>=0 ? pathToMCFiles : pathToDataFiles );
     std::vector<std::string> in_files = {};
 
-    if (iter>=0) in_files = {"./inoutfiles/Run3Summer22MiniAODv4-130X_mcRun3_2022_realistic_v5-v3_CVH_reshaped/*.root"};
-    else in_files = {"./inoutfiles/Run2022C-22Sep2023-v1-with-CVH-reshaped/251105_184648/0000/*.root", "./inoutfiles/Run2022C-22Sep2023-v1-with-CVH-reshaped/251105_184648/0001/*.root", "./inoutfiles/Run2022D-22Sep2023-v1-with-CVH-reshaped/251110_113908/0000/*.root", "./inoutfiles/Run2022E-22Sep2023-v1-with-CVH-reshaped/251111_133428/0000/*.root"};
-    ROOT::RDataFrame d( "tree", in_files );
+	for (const auto& entry : std::filesystem::recursive_directory_iterator(iter>=0 ? pathToMCFiles : pathToDataFiles)) {
+        if (entry.path().extension() == ".root") {
+            in_files.push_back(entry.path().string());
+        }
+    }
+
+	ROOT::RDataFrame d( "tree", in_files );
     
 	// TOYS MODE: Define vector of different TRandom variables to be used by different threads
 	unsigned int nslots = d.GetNSlots();

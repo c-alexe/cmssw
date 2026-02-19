@@ -504,6 +504,7 @@ int main(int argc, char* argv[]) {
     desc.add_options()
 	    ("help,h", "Help screen")
 	    ("ntoys",  value<long>()->default_value(1), "number of toys, should be 1 to use data")
+      ("out_folder",         value<std::string>()->default_value("out"), "name of output subdirectory")
 	    ("tag",    value<std::string>()->default_value("closure"), "tag of input data")
 	    ("run",    value<std::string>()->default_value("closure"), "run of input data")
 	    ("bias",   value<int>()->default_value(0), "bias [-1 for data, >0 for toys: 1 for uniform random bias, 2 for eta dependent bias]")
@@ -525,13 +526,14 @@ int main(int argc, char* argv[]) {
   }
 
   long ntoys         = vm["ntoys"].as<long>();
+  std::string out_folder    = vm["out_folder"].as<std::string>();
   std::string tag    = vm["tag"].as<std::string>();
   std::string infile = vm["infile"].as<std::string>();
   std::string run    = vm["run"].as<std::string>();
   int bias           = vm["bias"].as<int>();
   int seed           = vm["seed"].as<int>();
 
-  TFile* fout = TFile::Open(("./inoutfiles/results/massfit_"+tag+"_"+run+".root").c_str(), "RECREATE");
+  TFile* fout = TFile::Open(("./inoutfiles/results/"+out_folder+"/massfit_"+tag+"_"+run+".root").c_str(), "RECREATE");
   
   // Define TTree with fit qualities
   TTree* tree = new TTree("tree", "tree");
@@ -546,7 +548,7 @@ int main(int argc, char* argv[]) {
 
   // Initialize function to be minimized ( chi2/ndf - 1 )
   int debug = 0;
-  string infname = "./inoutfiles/results/"+infile+"_"+tag+"_"+run+".root";
+  string infname = "./inoutfiles/results/"+out_folder+"/"+infile+"_"+tag+"_"+run+".root";
   TheoryFcn* fFCN = new TheoryFcn(debug, seed, bias, infname);  
   fFCN->SetErrorDef(1.0 / fFCN->get_n_dof());
   unsigned int n_parameters = fFCN->get_n_params();

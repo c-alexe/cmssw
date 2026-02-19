@@ -16,7 +16,13 @@ parser = argparse.ArgumentParser(description='run')
 
 parser.add_argument('--none', action='store_true'  , help = 'none')
 parser.add_argument('--dryrun', action='store_true'  , help = 'dry run')
+parser.add_argument('--out_folder',   default='out' , help = 'name of output subdirectory')
 parser.add_argument('--tag',   default='PostVFP' , help = 'type of data used')
+parser.add_argument('--pathToDataFiles',   default='./inoutfiles/Run2022_E_F_G-reshaped/' , help = 'path to data')
+parser.add_argument('--lumiData',  type=float, default=-1. , help = 'for massscales') # 27.4970
+parser.add_argument('--pathToMCFiles',   default='./inoutfiles/Run3Summer22EEMiniAODv4-130X_mcRun3_2022_realistic_postEE_v6-v2_CVH_reshaped/' , help = 'path to MC')
+parser.add_argument('--lumiMC',  type=float, default=-1. , help = 'for massscales')# 14.241
+parser.add_argument('--nominalResolutionFile',   default='./inoutfiles/NominalResolution/Run3Summer22EE_nominal_resolution_coefficients.root' , help = 'nominal resolution')
 parser.add_argument('--niter', dest = 'niter'  , type = int,  default=1, help='number of iterations after the 0th')
 parser.add_argument('--forceIter', dest = 'forceIter'  , type = int,  default=-1, help='will only do a specific iteration and skip the rest')
 parser.add_argument('--ntoys', dest = 'ntoys' , type = int, default=0, help='number of toys, default is 0, set to >0 for TOYS MODE')
@@ -26,38 +32,54 @@ args = parser.parse_args()
 def loop_one(seed, toy_number):    
 
     assert args.forceIter <= args.niter 
+
+    out_folder=args.out_folder
     tag = args.tag
+    pathToDataFiles = args.pathToDataFiles
+    pathToMCFiles = args.pathToMCFiles
+    lumiData = args.lumiData
+    lumiMC = args.lumiMC
+    nominalResolutionFile = args.nominalResolutionFile
+
     cmd_histo_iter0 = './massscales_data --firstIter=-1 --lastIter=2 '+\
+        ' --out_folder='+out_folder+' '+\
         ' --tag='+tag+' '+\
         ' --run=Iter0 '+\
-        ' --pathToDataFiles=./inoutfiles/mc/*' +\
-        ' --pathToMCFiles=./inoutfiles/mc/*' +\
+        ' --pathToDataFiles='+pathToDataFiles+' '+\
+        ' --pathToMCFiles='+pathToMCFiles+' '+\
         ' --nRMSforGausFit=-1 '+\
-        ' --minNumEvents=10 --minNumEventsPerBin=3 '+\
+        ' --minNumEvents=100 --minNumEventsPerBin=10 '+\
         ' --minNumMassBins=4 '+\
         ' --rebin=2 '+\
         ' --fitNorm --fitWidth '+\
-        ' --scaleToData '
-    # --lumiData= --lumiMC=
+        f" --lumiData={lumiData} --lumiMC={lumiMC} --scaleToData "
+
     if args.ntoys>0 : # in TOYS MODE overwrite the tag and the Iter 0 massscales command
         tag = args.tag+'_toy'+str(toy_number)
         cmd_histo_iter0 = './massscales_data --firstIter=-1 --lastIter=2 '+\
+        ' --out_folder='+out_folder+' '+\
         ' --tag='+tag+' '+\
         ' --run=Iter0 '+\
+        ' --pathToDataFiles='+pathToDataFiles+' '+\
+        ' --pathToMCFiles='+pathToMCFiles+' '+\
         ' --nRMSforGausFit=-1 '+\
-        ' --minNumEvents=10 --minNumEventsPerBin=3 '+\
+        ' --minNumEvents=100 --minNumEventsPerBin=10 '+\
         ' --minNumMassBins=4 '+\
         ' --rebin=2 '+\
         ' --fitNorm --fitWidth '+\
-        ' --scaleToData --toysMode --nominalResolutionFile=./inoutfiles/NominalResolution/globalcor_0_one_file_MC_2022_E_F_G_reshaped_coefficients.root --biasResolutionRange=0.1 '+\
+        ' --toysMode '+\
+        ' --nominalResolutionFile='+nominalResolutionFile+' '+\
+        ' --biasResolutionRange=0.1 '+\
+        ' --scaleToData ' +\
         ' --seed='+str(seed)
-    # --lumiData= --lumiMC=
+        
     if not args.forceIter>0:
         print(cmd_histo_iter0)
     if not (args.dryrun or args.forceIter>0):
         os.system(cmd_histo_iter0)
         print("\n")
     cmd_fit_iter0 = './massfit --ntoys=1 --bias=-1 '+\
+        ' --out_folder='+out_folder+' '+\
         '--tag='+tag+' '+\
         '--run=Iter0 '
     if not args.forceIter>0:
@@ -66,9 +88,10 @@ def loop_one(seed, toy_number):
         os.system(cmd_fit_iter0)
         print("\n")
     cmd_resol_iter0 = './resolfit --ntoys=1 --bias=-1 '+\
+        ' --out_folder='+out_folder+' '+\
         ' --tag='+tag+' '+\
         ' --run=Iter0 '+\
-        ' --nominalResolutionFile=./inoutfiles/NominalResolution/Run3Summer22EE_nominal_resolution_coefficients.root ' +\
+        ' --nominalResolutionFile='+nominalResolutionFile+' '+\
         ' --maxSigmaErr=0.1 '
     if not args.forceIter>0:
         print(cmd_resol_iter0)
